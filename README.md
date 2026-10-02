@@ -1,5 +1,7 @@
 # PoseBlock 3D
 
+**https://poseblock3d.vercel.app/**
+
 AI 영상 제작용 **3D 포즈 블로킹 도구**입니다. 졸라맨 캐릭터와 소품을 3D로 배치하고, 카메라 앵글과 구도를 잡은 뒤 클릭 한 번으로 레퍼런스 이미지를 만듭니다. 프롬프트로 설명하기 어려운 인물 배치와 카메라 구도를 이미지 한 장으로 전달하세요.
 
 정적 사이트라 별도 설치나 빌드 없이 `index.html`을 열면 바로 동작합니다.
@@ -86,12 +88,8 @@ Three.js를 CDN(cdnjs)에서 불러오므로 인터넷 연결이 필요합니다
 링크를 공유할 때 보이는 미리보기 이미지입니다. `index.html`에는 태그가 미리 들어 있고, 이미지 파일은 직접 추가해야 합니다.
 
 1. 가로 1200px, 세로 630px의 이미지를 `og-image.png`로 저장해 `index.html`과 같은 폴더에 둡니다.
-2. 배포 도메인이 정해지면 `index.html`의 `og:image`와 `twitter:image` 값을 절대 주소로 바꿉니다. 많은 SNS 크롤러가 상대 경로를 읽지 못합니다.
-
-```html
-<meta property="og:image" content="https://내도메인/og-image.png">
-<meta name="twitter:image" content="https://내도메인/og-image.png">
-```
+2. `index.html`의 OG 태그는 이미 배포 주소(`https://poseblock3d.vercel.app/`)의 절대 주소로 설정되어 있습니다. 많은 SNS 크롤러가 상대 경로를 읽지 못하기 때문입니다. 도메인을 바꾸면 `canonical`, `og:url`, `og:image`, `twitter:image` 네 곳의 주소를 함께 바꾸세요.
+3. 파일을 올린 뒤 이미지 주소(`https://poseblock3d.vercel.app/og-image.png`)가 브라우저에서 열리는지 확인합니다. SNS는 미리보기를 캐시하므로, 이전에 공유한 적이 있다면 [Facebook 공유 디버거](https://developers.facebook.com/tools/debug/)나 각 서비스의 도구로 캐시를 새로 고쳐야 합니다.
 
 ## 기술 스택
 

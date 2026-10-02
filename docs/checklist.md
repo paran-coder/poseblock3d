@@ -131,7 +131,7 @@
 ## 9단계. 배포 준비 (Vercel)
 - [x] og:image, twitter:image 태그를 `og-image.png`로 미리 삽입 (1200x630, 가로세로 메타 포함)
 - [ ] 1200x630 `og-image.png`를 `index.html`과 같은 폴더에 추가
-- [ ] 배포 도메인 확정 후 og:image, twitter:image를 `https://도메인/og-image.png` 절대 주소로 교체
+- [x] 배포 도메인(`https://poseblock3d.vercel.app/`) 확정 후 og:image, twitter:image를 절대 주소로 교체하고 canonical, og:url, og:locale 추가
 - [ ] GitHub 저장소에 프로젝트 전체(`index.html`, `css/`, `js/`, `docs/`, `scripts/`, `og-image.png`) 푸시
 - [ ] Vercel에 저장소 연결 (빌드 없이 정적 배포, Framework Preset은 Other)
 - [ ] 배포 주소에서 클립보드 복사 동작 확인 (HTTPS에서는 동작)
