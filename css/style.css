@@ -18,9 +18,10 @@ header{
   grid-area:hd; display:flex; align-items:center; gap:12px; padding:0 14px;
   background:var(--panel); border-bottom:1px solid var(--line); z-index:3;
 }
-.brand{font-weight:700; font-size:15px; letter-spacing:-.01em; display:flex; align-items:center; gap:8px; white-space:nowrap}
+.brand{font-weight:700; font-size:15px; letter-spacing:-.01em; display:flex; align-items:center; gap:8px; white-space:nowrap; color:inherit; text-decoration:none}
 .brand .logo{width:26px;height:26px;border-radius:8px;background:var(--acc);color:#fff;display:grid;place-items:center;font-size:14px}
 .brand b{color:var(--acc)}
+.app-ver{font-size:10.5px;color:var(--mute);font-weight:600;white-space:nowrap;margin-left:-5px}
 .sp{flex:1}
 .grp{display:flex; gap:6px}
 .btn{
@@ -96,6 +97,8 @@ aside{overflow:auto;background:var(--panel);padding:12px;display:flex;flex-direc
 .row .v{width:52px;text-align:right;font-variant-numeric:tabular-nums;color:var(--ink)}
 input[type=range]{flex:1;accent-color:var(--acc);min-width:0}
 select{flex:1;min-width:0;height:30px;border:1px solid var(--line);border-radius:8px;padding:0 8px;font:inherit;background:#fff}
+.asset-cats{margin:7px 0 9px}
+.asset-cats button{font-weight:650}
 .pgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
 .pgrid .sv .nm.ro{padding:2px 2px;font-size:10.5px;text-align:center;font-weight:600}
 .swatches{display:flex;flex-wrap:wrap;gap:5px;flex:1}

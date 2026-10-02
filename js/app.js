@@ -308,6 +308,15 @@ function defaultChar(i = 0, used = []) {
 const PROP_COLORS = ['#b08968', '#8d99ae', '#adb5bd', '#f1f3f5', '#e9c46a', '#2a9d8f', '#e76f51', '#6d597a', '#264653'];
 const bxM = (m, w, h, d, x, y, z) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); return o; };
 const cyM = (m, r, h, x, y, z, rz = 0) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 24), m); o.position.set(x, y, z); o.rotation.z = rz; return o; };
+const spM = (m, r, x, y, z, sx = 1, sy = 1, sz = 1) => { const o = new THREE.Mesh(new THREE.SphereGeometry(r, 20, 14), m); o.position.set(x, y, z); o.scale.set(sx, sy, sz); return o; };
+const coneM = (m, r, h, x, y, z, rx = 0, ry = 0, rz = 0) => { const o = new THREE.Mesh(new THREE.ConeGeometry(r, h, 16), m); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); return o; };
+const torM = (m, r, tube, x, y, z, rx = 0, ry = 0, rz = 0) => { const o = new THREE.Mesh(new THREE.TorusGeometry(r, tube, 10, 28), m); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); return o; };
+const rodM = (m, r, a, b) => {
+  const av = V3(a[0], a[1], a[2]), bv = V3(b[0], b[1], b[2]), v = bv.clone().sub(av), h = v.length();
+  const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 14), m); o.position.copy(av.add(bv).multiplyScalar(0.5));
+  if (h > 1e-6) o.quaternion.setFromUnitVectors(V3(0, 1, 0), v.normalize());
+  return o;
+};
 const PROP_TYPES = {
   box: { name: '박스', color: '#adb5bd', build: m => [bxM(m, 0.6, 0.6, 0.6, 0, 0.3, 0)] },
   chair: { name: '의자', color: '#b08968', build: m => {
@@ -329,7 +338,81 @@ const PROP_TYPES = {
     const a = [bxM(m, 1.8, 0.5, 4.2, 0, 0.55, 0), bxM(m, 1.55, 0.5, 2.0, 0, 1.05, -0.2)];
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) a.push(cyM(d, 0.33, 0.22, sx * 0.9, 0.33, sz * 1.3, Math.PI / 2));
     return a; } },
+  dog: { name: '개', color: '#b08968', build: (m, d) => {
+    // 튼튼한 직사각 몸통 + 긴 주둥이 + 아래로 처지는 귀/꼬리로 고양이와 실루엣 분리
+    const a = [bxM(m, 0.68, 0.48, 1.2, 0, 0.58, 0), spM(m, 0.31, 0, 0.82, 0.67, 1.05, 0.9, 1), bxM(m, 0.32, 0.22, 0.42, 0, 0.76, 0.98), spM(d, 0.055, 0, 0.79, 1.22, 1.1, 0.8, 1)];
+    for (const x of [-0.25, 0.25]) for (const z of [-0.38, 0.38]) a.push(rodM(m, 0.065, [x, 0.48, z], [x, 0.08, z]));
+    const le = bxM(m, 0.12, 0.3, 0.08, -0.25, 0.82, 0.64), re = bxM(m, 0.12, 0.3, 0.08, 0.25, 0.82, 0.64); le.rotation.z = 0.22; re.rotation.z = -0.22; a.push(le, re);
+    a.push(rodM(m, 0.06, [0, 0.68, -0.58], [0.05, 0.5, -0.95]), rodM(m, 0.05, [0.05, 0.5, -0.95], [0.08, 0.34, -1.1])); return a; } },
+  cat: { name: '고양이', color: '#8d99ae', build: (m, d) => {
+    // 낮고 가는 몸 + 둥근 얼굴 + 큰 삼각 귀 + 위로 치켜든 긴 꼬리
+    const a = [spM(m, 0.34, 0, 0.46, -0.05, 0.9, 0.62, 1.55), spM(m, 0.27, 0, 0.69, 0.48, 1, 1, 0.95), spM(d, 0.04, 0, 0.66, 0.73)];
+    for (const x of [-0.19, 0.19]) for (const z of [-0.25, 0.25]) a.push(rodM(m, 0.04, [x, 0.38, z], [x, 0.055, z]));
+    a.push(coneM(m, 0.12, 0.28, -0.14, 0.99, 0.45, 0, 0, -0.05), coneM(m, 0.12, 0.28, 0.14, 0.99, 0.45, 0, 0, 0.05));
+    a.push(rodM(m, 0.038, [0, 0.5, -0.5], [0.2, 0.78, -0.77]), rodM(m, 0.035, [0.2, 0.78, -0.77], [0.12, 1.13, -0.82]), rodM(m, 0.03, [0.12, 1.13, -0.82], [-0.03, 1.3, -0.72])); return a; } },
+  horse: { name: '말', color: '#b08968', build: (m, d) => {
+    const a = [spM(m, 0.48, 0, 0.95, 0, 1.05, 0.78, 1.65), rodM(m, 0.2, [0, 1.05, 0.55], [0, 1.55, 0.85]), spM(m, 0.3, 0, 1.62, 1.02, 0.9, 0.85, 1.2)];
+    for (const x of [-0.32, 0.32]) for (const z of [-0.48, 0.48]) { a.push(rodM(m, 0.065, [x, 0.72, z], [x, 0.12, z])); a.push(bxM(d, 0.16, 0.09, 0.24, x, 0.045, z + 0.04)); }
+    a.push(coneM(m, 0.08, 0.2, -0.15, 1.92, 1.0, 0, 0, -0.1), coneM(m, 0.08, 0.2, 0.15, 1.92, 1.0, 0, 0, 0.1));
+    a.push(rodM(d, 0.05, [0, 1.0, -0.72], [0, 0.55, -1.15])); return a; } },
+  bird: { name: '새', color: '#e9c46a', build: (m, d) => {
+    const a = [spM(m, 0.28, 0, 0.38, 0, 1, 0.8, 1.35), spM(m, 0.19, 0, 0.58, 0.36), coneM(d, 0.08, 0.28, 0, 0.56, 0.63, Math.PI / 2)];
+    const wl = bxM(m, 0.55, 0.05, 0.3, -0.31, 0.42, -0.02); wl.rotation.z = 0.24; const wr = bxM(m, 0.55, 0.05, 0.3, 0.31, 0.42, -0.02); wr.rotation.z = -0.24; a.push(wl, wr);
+    a.push(rodM(d, 0.025, [-0.09, 0.2, 0.08], [-0.11, 0.02, 0.13]), rodM(d, 0.025, [0.09, 0.2, 0.08], [0.11, 0.02, 0.13])); return a; } },
+  tiger: { name: '호랑이', color: '#e9a23b', build: (m, d) => {
+    const a = [spM(m, 0.5, 0, 0.72, 0, 1.05, 0.72, 1.65), spM(m, 0.34, 0, 0.88, 0.82, 1.05, 0.95, 1), bxM(m, 0.34, 0.2, 0.32, 0, 0.81, 1.08)];
+    for (const x of [-0.3, 0.3]) for (const z of [-0.42, 0.42]) a.push(rodM(m, 0.065, [x, 0.58, z], [x, 0.08, z]));
+    a.push(coneM(m, 0.1, 0.22, -0.18, 1.17, 0.8, 0, 0, -0.08), coneM(m, 0.1, 0.22, 0.18, 1.17, 0.8, 0, 0, 0.08));
+    for (const z of [-0.52,-0.18,0.18,0.52]) a.push(bxM(d, 0.9, 0.055, 0.09, 0, 1.01, z));
+    a.push(rodM(m, 0.055, [0, 0.76, -0.7], [0.18, 0.82, -1.08]), rodM(m, 0.05, [0.18, 0.82, -1.08], [-0.04, 0.7, -1.42])); return a; } },
+  dragon: { name: '용', color: '#2a9d8f', build: (m, d) => {
+    // 동양식: 길고 굽이치는 몸통, 큰 머리, 뿔, 수염, 네 다리. 날개는 사용하지 않음.
+    const pts = [[0,0.42,-1.65],[-0.2,0.58,-1.22],[0.16,0.72,-0.78],[-0.12,0.88,-0.28],[0.18,1.0,0.2],[-0.06,1.08,0.7],[0,1.12,1.16]];
+    const a = [];
+    for (let i=0;i<pts.length-1;i++) a.push(rodM(m, 0.14 - i*0.007, pts[i], pts[i+1]));
+    for (let i=1;i<pts.length-1;i++) a.push(spM(m, 0.145 - i*0.006, ...pts[i]));
+    a.push(spM(m, 0.28, 0, 1.2, 1.42, 1.05, 0.82, 1.05), bxM(m, 0.34, 0.2, 0.42, 0, 1.12, 1.72));
+    a.push(coneM(d, 0.055, 0.42, -0.16, 1.5, 1.34, -0.32, 0, -0.16), coneM(d, 0.055, 0.42, 0.16, 1.5, 1.34, -0.32, 0, 0.16));
+    a.push(rodM(d, 0.018, [-0.18,1.15,1.72],[-0.72,1.0,1.9]), rodM(d, 0.018, [0.18,1.15,1.72],[0.72,1.0,1.9]));
+    for (const [x,z] of [[-0.14,-0.62],[0.14,-0.05],[-0.14,0.42],[0.14,0.86]]) {
+      const sx = x < 0 ? -1 : 1; a.push(rodM(m, 0.045, [x,0.84 + (z+0.6)*0.18,z], [sx*0.42,0.48,z+0.04]), rodM(m, 0.035, [sx*0.42,0.48,z+0.04], [sx*0.55,0.28,z+0.18]));
+    }
+    a.push(coneM(m,0.08,0.34,0,0.52,-1.82,-Math.PI/2)); return a; } },
+  turtle: { name: '거북이', color: '#6a994e', build: (m, d) => {
+    const a = [spM(m, 0.55, 0, 0.34, 0, 1.2, 0.48, 1.45), spM(d, 0.44, 0, 0.36, 0, 1.2, 0.32, 1.45), spM(m, 0.2, 0, 0.3, 0.75, 1.1, 0.9, 1)];
+    for (const [x,z,rz] of [[-0.48,0.35,0.55],[0.48,0.35,-0.55],[-0.48,-0.35,-0.55],[0.48,-0.35,0.55]]) { const leg=bxM(m,0.34,0.09,0.22,x,0.13,z); leg.rotation.y=rz; a.push(leg); }
+    a.push(coneM(m,0.08,0.24,0,0.25,-0.78,-Math.PI/2)); return a; } },
+  bicycle: { name: '자전거', color: '#2a9d8f', build: (m, d) => {
+    const a = [torM(d, 0.42, 0.045, 0, 0.47, -0.75, 0, Math.PI / 2), torM(d, 0.42, 0.045, 0, 0.47, 0.75, 0, Math.PI / 2)];
+    const rear=[0,0.47,-0.75], front=[0,0.47,0.75], crank=[0,0.5,-0.05], seat=[0,0.92,-0.28], bar=[0,1.0,0.6];
+    a.push(rodM(m,0.035,rear,crank),rodM(m,0.035,crank,front),rodM(m,0.035,rear,seat),rodM(m,0.035,seat,crank),rodM(m,0.035,seat,front),rodM(m,0.035,front,bar));
+    a.push(bxM(d,0.34,0.06,0.18,0,0.98,-0.31), bxM(m,0.65,0.035,0.035,0,1.0,0.6)); return a; } },
+  motorcycle: { name: '오토바이', color: '#e76f51', build: (m, d) => {
+    const a = [torM(d, 0.42, 0.08, 0, 0.5, -0.9, 0, Math.PI / 2), torM(d, 0.42, 0.08, 0, 0.5, 0.9, 0, Math.PI / 2), bxM(m, 0.48, 0.42, 1.0, 0, 0.68, 0.05), bxM(d, 0.48, 0.12, 0.6, 0, 0.96, -0.25)];
+    a.push(rodM(m,0.055,[0,0.55,-0.7],[0,0.8,0]),rodM(m,0.055,[0,0.5,0.9],[0,1.08,0.58]),bxM(m,0.7,0.04,0.04,0,1.08,0.58)); return a; } },
+  bus: { name: '버스', color: '#e9c46a', build: (m, d) => {
+    // 하나로 이어진 긴 승객실, 반복 창문, 앞유리/출입문으로 버스 실루엣 강조
+    const a = [bxM(m, 1.9, 1.65, 5.2, 0, 1.08, 0), bxM(d, 1.55, 0.58, 0.06, 0, 1.48, 2.63), bxM(d, 0.06, 0.92, 0.62, 0.965, 1.22, 1.72)];
+    for (const sx of [-1, 1]) for (const z of [-1.65, 1.65]) a.push(cyM(d, 0.35, 0.24, sx * 0.97, 0.35, z, Math.PI / 2));
+    for (const sx of [-1, 1]) for (const z of [-1.72,-0.82,0.08,0.98]) a.push(bxM(d, 0.045, 0.52, 0.66, sx * 0.968, 1.48, z));
+    return a; } },
+  truck: { name: '트럭', color: '#8d99ae', build: (m, d) => {
+    // 앞쪽 운전석과 뒤쪽 열린 적재함을 분리한 픽업/화물 트럭형 실루엣
+    const a = [bxM(m, 1.85, 1.35, 1.55, 0, 0.98, 1.25), bxM(m, 1.95, 0.22, 2.45, 0, 0.58, -0.72), bxM(m, 0.13, 0.72, 2.45, -0.91, 0.89, -0.72), bxM(m, 0.13, 0.72, 2.45, 0.91, 0.89, -0.72), bxM(m, 1.95, 0.72, 0.13, 0, 0.89, -1.9), bxM(d, 1.42, 0.42, 0.055, 0, 1.2, 2.04)];
+    for (const sx of [-1, 1]) for (const z of [-1.28, 1.28]) a.push(cyM(d, 0.37, 0.25, sx * 0.98, 0.37, z, Math.PI / 2));
+    return a; } },
+  boat: { name: '보트', color: '#2a9d8f', build: (m, d) => {
+    const hull = bxM(m, 1.25, 0.38, 2.5, 0, 0.19, -0.2), bow = coneM(m, 0.72, 1.25, 0, 0.33, 1.55, Math.PI / 2); bow.scale.set(0.9, 0.45, 1);
+    const a = [hull, bow, bxM(m, 0.95, 0.5, 0.95, 0, 0.63, -0.35), bxM(d, 0.72, 0.24, 0.05, 0, 0.69, 0.13)]; return a; } },
+  airplane: { name: '비행기', color: '#adb5bd', build: (m, d) => {
+    const a = [rodM(m, 0.22, [0,0.62,-1.45], [0,0.62,1.35]), coneM(m, 0.24, 0.65, 0, 0.62, 1.67, Math.PI / 2), bxM(m, 3.0, 0.08, 0.62, 0, 0.58, -0.05), bxM(m, 1.35, 0.06, 0.4, 0, 0.68, -1.22), bxM(m, 0.08, 0.72, 0.45, 0, 0.94, -1.25), bxM(d, 0.34, 0.18, 0.05, 0, 0.79, 1.31)]; return a; } },
 };
+const PROP_CATEGORIES = {
+  basic: ['box','chair','table','sofa','bed','stairs','wall','pillar','ball'],
+  animal: ['dog','cat','horse','bird','tiger','dragon','turtle'],
+  vehicle: ['car','bicycle','motorcycle','bus','truck','boat','airplane'],
+};
+let propCategory = 'basic';
 const propSc = v => Array.isArray(v) && v.length === 3 ? v.map(x => clamp(finite(x, 1), 0.2, 4)) : [1, 1, 1];
 function createProp(data) {
   const T = PROP_TYPES[data.type]; if (!T) return null;
@@ -369,7 +452,7 @@ function setProps(list) {
 }
 const selProp = () => props.find(p => p.id === sel.p) || null;
 function addProp(type) {
-  if (props.length >= MAX_PROPS) { toast(`소품은 최대 ${MAX_PROPS}개까지 놓을 수 있습니다.`); return; }
+  if (props.length >= MAX_PROPS) { toast(`에셋은 최대 ${MAX_PROPS}개까지 놓을 수 있습니다.`); return; }
   const c = selChar(), bx = c ? c.root.position.x : 0, bz = c ? c.root.position.z : 0;
   const dx = [1.2, -1.2, 2.4, -2.4, 3.6, -3.6].find(d => !props.some(q => Math.hypot(q.root.position.x - (bx + d), q.root.position.z - bz) < 0.9)) ?? 1.2;
   const p = createProp({ type, pos: [bx + dx, 0, bz] }); props.push(p); selectProp(p); commit();
@@ -965,27 +1048,43 @@ document.querySelectorAll('#viewSeg button').forEach(b => b.onclick = () => setV
 
 // 소품 패널
 const propThumbs = {};
-function ensurePropThumbs() {
-  for (const type of Object.keys(PROP_TYPES)) {
+function ensurePropThumbs(types) {
+  for (const type of types) {
     if (propThumbs[type]) continue;
-    const tp = createProp({ type, pos: [0, 0, 0] }); if (!tp) continue;
-    const box = new THREE.Box3().setFromObject(tp.root), size = box.getSize(V3()), ctr = box.getCenter(V3());
-    const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 80), fh = Math.tan(THREE.MathUtils.degToRad(15));
-    const dist = Math.max(size.x, size.y, size.z) / 2 / fh * 1.25 + Math.max(size.x, size.z) / 2;
-    cam.position.copy(ctr).add(V3(Math.sin(0.75) * 0.9, 0.55, Math.cos(0.75) * 0.9).normalize().multiplyScalar(dist)); cam.lookAt(ctr); cam.updateMatrixWorld(true);
-    propThumbs[type] = renderWith(cam, 160, 160, { solo: tp.root, grid: 'off' }).toDataURL('image/jpeg', 0.84);
-    disposeProp(tp);
+    let tp = null;
+    try {
+      tp = createProp({ type, pos: [0, 0, 0] }); if (!tp) continue;
+      const box = new THREE.Box3().setFromObject(tp.root), size = box.getSize(V3()), ctr = box.getCenter(V3());
+      const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 80), fh = Math.tan(THREE.MathUtils.degToRad(15));
+      const dist = Math.max(size.x, size.y, size.z) / 2 / fh * 1.25 + Math.max(size.x, size.z) / 2;
+      cam.position.copy(ctr).add(V3(Math.sin(0.75) * 0.9, 0.55, Math.cos(0.75) * 0.9).normalize().multiplyScalar(dist)); cam.lookAt(ctr); cam.updateMatrixWorld(true);
+      propThumbs[type] = renderWith(cam, 160, 160, { solo: tp.root, grid: 'off' }).toDataURL('image/jpeg', 0.84);
+    } catch (e) {
+      propThumbs[type] = '';
+    } finally {
+      if (tp) disposeProp(tp);
+    }
   }
 }
 function renderPropGrid() {
-  ensurePropThumbs();
+  const types = PROP_CATEGORIES[propCategory] || PROP_CATEGORIES.basic;
+  ensurePropThumbs(types);
   const g = $('#propGrid'); g.innerHTML = '';
-  Object.entries(PROP_TYPES).forEach(([type, T]) => {
+  types.forEach(type => {
+    const T = PROP_TYPES[type]; if (!T) return;
     const card = el('div', 'sv'), img = el('img'), nm = el('div', 'nm ro');
-    img.src = propThumbs[type]; img.alt = T.name; img.title = `${T.name} 추가`; img.onclick = () => addProp(type);
+    if (propThumbs[type]) img.src = propThumbs[type];
+    img.alt = T.name; img.title = `${T.name} 추가`; img.onclick = () => addProp(type);
     nm.textContent = T.name; card.append(img, nm); g.append(card);
   });
 }
+function setPropCategory(cat) {
+  if (!PROP_CATEGORIES[cat]) return;
+  propCategory = cat;
+  document.querySelectorAll('#propCats button').forEach(b => b.classList.toggle('on', b.dataset.cat === cat));
+  renderPropGrid();
+}
+document.querySelectorAll('#propCats button').forEach(b => b.onclick = () => setPropCategory(b.dataset.cat));
 function syncProps() {
   const box = $('#propChips'); if (!box) return; box.innerHTML = '';
   props.forEach(p => {
@@ -1407,9 +1506,9 @@ window.addEventListener('keydown', e => {
 // 시작
 // ------------------------------------------------------------
 (function boot() {
-  let ok = false;
-  try { const f = store.get(K_AUTO); const list = f && sanitizeChars(f.chars); if (list) { setChars(list); setProps(sanitizeProps(f.props)); setCam(f.cam); ok = true; } } catch (e) { ok = false; }
-  if (!ok) { setChars([{ ...defaultChar(), name: 'A' }]); }
+  // 새로고침/재진입은 항상 기본 씬으로 시작한다. 사용자가 저장한 포즈/씬 라이브러리는 별도 저장소라 그대로 유지된다.
+  setProps([]);
+  setChars([{ ...defaultChar(), name: 'A' }]);
   commit(); setView('work'); syncPanel(); mark();
   setTimeout(renderSaved, 60);
   setTimeout(handleShareHash, 220);
