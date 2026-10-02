@@ -382,6 +382,14 @@ const PROP_TYPES = {
     const a = [spM(m, 0.55, 0, 0.34, 0, 1.2, 0.48, 1.45), spM(d, 0.44, 0, 0.36, 0, 1.2, 0.32, 1.45), spM(m, 0.2, 0, 0.3, 0.75, 1.1, 0.9, 1)];
     for (const [x,z,rz] of [[-0.48,0.35,0.55],[0.48,0.35,-0.55],[-0.48,-0.35,-0.55],[0.48,-0.35,0.55]]) { const leg=bxM(m,0.34,0.09,0.22,x,0.13,z); leg.rotation.y=rz; a.push(leg); }
     a.push(coneM(m,0.08,0.24,0,0.25,-0.78,-Math.PI/2)); return a; } },
+  snake: { name: '구렁이', color: '#718355', build: (m, d) => {
+    // 바닥을 따라 S자로 이어지는 굵은 몸통과 넓은 머리. 용과 달리 다리/뿔 없이 낮게 배치한다.
+    const pts = [[-0.9,0.16,-0.72],[-0.48,0.18,-0.92],[0.02,0.2,-0.78],[0.42,0.22,-0.42],[0.22,0.24,0.02],[-0.2,0.25,0.26],[-0.45,0.27,0.62],[-0.18,0.3,0.92],[0.18,0.32,1.12]];
+    const a = [];
+    for (let i=0;i<pts.length-1;i++) a.push(rodM(m, Math.max(0.055, 0.12 - i*0.007), pts[i], pts[i+1]));
+    for (let i=1;i<pts.length-1;i++) a.push(spM(m, Math.max(0.06, 0.125 - i*0.007), ...pts[i], 1.15, 0.9, 1.15));
+    a.push(spM(m, 0.17, 0.18, 0.34, 1.28, 1.25, 0.82, 1.05), spM(d, 0.025, 0.13, 0.39, 1.42), spM(d, 0.025, 0.23, 0.39, 1.42));
+    return a; } },
   bicycle: { name: '자전거', color: '#2a9d8f', build: (m, d) => {
     const a = [torM(d, 0.42, 0.045, 0, 0.47, -0.75, 0, Math.PI / 2), torM(d, 0.42, 0.045, 0, 0.47, 0.75, 0, Math.PI / 2)];
     const rear=[0,0.47,-0.75], front=[0,0.47,0.75], crank=[0,0.5,-0.05], seat=[0,0.92,-0.28], bar=[0,1.0,0.6];
@@ -409,7 +417,7 @@ const PROP_TYPES = {
 };
 const PROP_CATEGORIES = {
   basic: ['box','chair','table','sofa','bed','stairs','wall','pillar','ball'],
-  animal: ['dog','cat','horse','bird','tiger','dragon','turtle'],
+  animal: ['dog','cat','horse','bird','tiger','dragon','turtle','snake'],
   vehicle: ['car','bicycle','motorcycle','bus','truck','boat','airplane'],
 };
 let propCategory = 'basic';
@@ -1046,35 +1054,19 @@ $('#newScene').onclick = () => { sel.c = null; sel.j = null; sel.p = null; setPr
 $('#capCopy').onclick = () => capture('copy'); $('#capPng').onclick = () => capture('png');
 document.querySelectorAll('#viewSeg button').forEach(b => b.onclick = () => setView(b.dataset.v));
 
-// 소품 패널
-const propThumbs = {};
-function ensurePropThumbs(types) {
-  for (const type of types) {
-    if (propThumbs[type]) continue;
-    let tp = null;
-    try {
-      tp = createProp({ type, pos: [0, 0, 0] }); if (!tp) continue;
-      const box = new THREE.Box3().setFromObject(tp.root), size = box.getSize(V3()), ctr = box.getCenter(V3());
-      const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 80), fh = Math.tan(THREE.MathUtils.degToRad(15));
-      const dist = Math.max(size.x, size.y, size.z) / 2 / fh * 1.25 + Math.max(size.x, size.z) / 2;
-      cam.position.copy(ctr).add(V3(Math.sin(0.75) * 0.9, 0.55, Math.cos(0.75) * 0.9).normalize().multiplyScalar(dist)); cam.lookAt(ctr); cam.updateMatrixWorld(true);
-      propThumbs[type] = renderWith(cam, 160, 160, { solo: tp.root, grid: 'off' }).toDataURL('image/jpeg', 0.84);
-    } catch (e) {
-      propThumbs[type] = '';
-    } finally {
-      if (tp) disposeProp(tp);
-    }
-  }
-}
+// 에셋 패널
+// 일반 실행에서는 정적 WebP만 사용한다. 단일 HTML 빌드는 build-single.mjs가 같은 이미지를 data URI로 주입한다.
+const PROP_THUMB_VERSION = '1.4.0';
+const propThumbs = window.__PB_PROP_THUMBS__ || {};
+function propThumbSrc(type) { return propThumbs[type] || `assets/thumbs/${type}.webp?v=${PROP_THUMB_VERSION}`; }
 function renderPropGrid() {
   const types = PROP_CATEGORIES[propCategory] || PROP_CATEGORIES.basic;
-  ensurePropThumbs(types);
   const g = $('#propGrid'); g.innerHTML = '';
   types.forEach(type => {
     const T = PROP_TYPES[type]; if (!T) return;
     const card = el('div', 'sv'), img = el('img'), nm = el('div', 'nm ro');
-    if (propThumbs[type]) img.src = propThumbs[type];
-    img.alt = T.name; img.title = `${T.name} 추가`; img.onclick = () => addProp(type);
+    img.src = propThumbSrc(type);
+    img.alt = T.name; img.title = `${T.name} 추가`; img.loading = 'lazy'; img.decoding = 'async'; img.onclick = () => addProp(type);
     nm.textContent = T.name; card.append(img, nm); g.append(card);
   });
 }
