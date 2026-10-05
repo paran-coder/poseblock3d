@@ -236,7 +236,7 @@ kbd{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;background:#eef0f3;bor
 <body>
 
 <header>
-  <a class="brand" href="https://poseblock3d.vercel.app/" aria-label="PoseBlock 3D 홈페이지" title="PoseBlock 3D 홈페이지로 이동"><span class="logo">◈</span><span class="t">PoseBlock <b>3D</b></span></a><span class="app-ver" aria-label="현재 버전">v1.7.0</span>
+  <a class="brand" href="https://poseblock3d.vercel.app/" aria-label="PoseBlock 3D 홈페이지" title="PoseBlock 3D 홈페이지로 이동"><span class="logo">◈</span><span class="t">PoseBlock <b>3D</b></span></a><span class="app-ver" aria-label="현재 버전">v1.7.1</span>
   <div class="grp">
     <button class="btn" id="undo" title="되돌리기 (Ctrl+Z)">↶</button>
     <button class="btn" id="redo" title="다시 실행 (Ctrl+Shift+Z)">↷</button>
@@ -1710,7 +1710,7 @@ const PRESETS = [
 ];
 
 // ------------------------------------------------------------
-// 프리셋 사전 v1.7.0
+// 프리셋 사전 v1.7.1
 // 기존 12개 PRESETS는 빠른 시작용 기본 프리셋으로 유지하고,
 // 사전은 people/tags/pose/layout 데이터만 추가하면 확장할 수 있도록 분리합니다.
 // ------------------------------------------------------------
@@ -1735,6 +1735,18 @@ const ONE_POSES = {
     pelvis: [0, -10, 8], spineLow: [-8, 0, -10], spineMid: [-5, 0, -8], head: [0, 8, 0],
     hipL: [-8, 0, 0], kneeL: [12, 0, 0], hipR: [18, 0, 0], kneeR: [28, 0, 0],
     shoulderL: [0, 0, 10], elbowL: [-24, 0, 0], shoulderR: [0, 0, -16], elbowR: [-20, 0, 0] } },
+  kneel: { j: { ...sym({ hipL: [-62, 0, 6], kneeL: [112, 0, 0], ankleL: [-28, 0, 0], shoulderL: [-8, 0, 7], elbowL: [-18, 0, 0] }),
+    spineLow: [6, 0, 0], spineMid: [4, 0, 0], neck: [-4, 0, 0] } },
+  lunge: { j: {
+    pelvis: [0, -6, 0], spineLow: [12, 0, 0], spineMid: [5, 0, 0],
+    hipL: [-72, 0, 3], kneeL: [92, 0, 0], ankleL: [-8, 0, 0], hipR: [24, 0, -2], kneeR: [18, 0, 0],
+    shoulderL: [-20, 0, 12], elbowL: [-26, 0, 0], shoulderR: [-34, 0, -12], elbowR: [-38, 0, 0] } },
+  stretch: { j: { ...sym({ shoulderL: [0, 0, 158], elbowL: [0, 0, 12] }), spineLow: [-8, 0, 0], spineMid: [-8, 0, 0], neck: [6, 0, 0], head: [5, 0, 0] } },
+  lookBack: { j: {
+    pelvis: [0, -18, 0], spineLow: [0, -18, 0], spineMid: [0, -22, 0], spineUp: [0, -18, 0], neck: [0, -26, 0], head: [0, -20, 0],
+    hipL: [-8, 0, 0], kneeL: [12, 0, 0], hipR: [10, 0, 0], kneeR: [18, 0, 0], shoulderL: [-8, 0, 10], elbowL: [-22, 0, 0], shoulderR: [4, 0, -8], elbowR: [-14, 0, 0] } },
+  prone: { j: { ...sym({ shoulderL: [-118, 0, 18], elbowL: [-62, 0, 0], hipL: [2, 0, 4], kneeL: [10, 0, 0] }),
+    pelvis: [90, 0, 0], spineLow: [2, 0, 0], neck: [-18, 0, 0], head: [-12, 0, 0] } },
 };
 const PAIR_POSES = {
   neutral: { j: sym({ shoulderL: [0, 0, 6], elbowL: [-8, 0, 0] }) },
@@ -1749,8 +1761,11 @@ const PAIR_POSES = {
   shoulderB: { j: { shoulderL: [0, 0, 70], elbowL: [-58, 0, 0], shoulderR: [0, 0, -5], elbowR: [-10, 0, 0] } },
   piggyA: { j: { spineLow: [24, 0, 0], spineMid: [10, 0, 0], ...sym({ hipL: [-18, 0, 5], kneeL: [22, 0, 0], shoulderL: [-30, 0, 26], elbowL: [-68, 0, 0] }) } },
   piggyB: { j: { spineLow: [-8, 0, 0], ...sym({ hipL: [-82, 0, 20], kneeL: [98, 0, 0], shoulderL: [-44, 0, 38], elbowL: [-66, 0, 0] }) } },
-  carryA: { j: { spineLow: [12, 0, 0], ...sym({ shoulderL: [-64, 0, 30], elbowL: [-86, 0, 0] }), hipL: [-6,0,0], hipR:[6,0,0] } },
-  carryB: { j: { pelvis: [78, 0, 0], spineLow: [8,0,0], ...sym({ hipL: [-38, 0, 8], kneeL: [54, 0, 0], shoulderL: [8, 0, 20], elbowL: [-18,0,0] }) } },
+  carryA: { j: { spineLow: [-6, 0, 0], spineMid: [-4, 0, 0], hipL: [-5,0,0], hipR:[5,0,0], kneeL:[8,0,0], kneeR:[8,0,0] },
+    ik: { wristL: [-0.34, 1.15, 0.34], wristR: [0.34, 1.02, 0.36] } },
+  carryB: { j: { pelvis: [88, 0, 0], spineLow: [-4,0,0], spineMid:[-4,0,0], neck:[-8,0,0],
+    hipL: [-28, 0, 10], kneeL: [68, 0, 0], hipR: [-42, 0, -8], kneeR: [82, 0, 0],
+    shoulderL: [-34, 0, 26], elbowL: [-58,0,0], shoulderR: [-18,0,-20], elbowR: [-42,0,0] } },
   supportA: { j: { shoulderR: [0,0,-78], elbowR: [-50,0,0], spineLow:[4,0,0], hipR:[-10,0,0], kneeR:[18,0,0] } },
   supportB: { j: { shoulderL: [0,0,72], elbowL: [-66,0,0], spineLow:[16,0,-8], hipL:[-34,0,0], kneeL:[54,0,0], hipR:[8,0,0], kneeR:[18,0,0] } },
   pushA: { j: { ...sym({ shoulderL: [-82,0,16], elbowL: [-8,0,0] }), spineLow:[18,0,0], hipL:[-18,0,0], hipR:[12,0,0] } },
@@ -1762,18 +1777,18 @@ const PAIR_POSES = {
 };
 
 const DICT_PRESETS = [
-  { id:'one-walk', name:'걷기', people:1, tags:['일상','이동'], pose:basePreset('walk') },
-  { id:'one-run', name:'달리기', people:1, tags:['액션','이동'], pose:basePreset('run') },
   { id:'one-sprint', name:'전력질주', people:1, tags:['액션','이동'], pose:ONE_POSES.sprint },
-  { id:'one-jump', name:'점프', people:1, tags:['액션','이동'], pose:basePreset('jump') },
   { id:'one-land', name:'착지', people:1, tags:['액션','이동'], pose:ONE_POSES.land },
   { id:'one-roll', name:'구르기', people:1, tags:['액션','이동'], pose:ONE_POSES.roll },
   { id:'one-fall', name:'넘어지기', people:1, tags:['액션','감정'], pose:ONE_POSES.fall },
   { id:'one-crawl', name:'기어가기', people:1, tags:['액션','이동'], pose:ONE_POSES.crawl },
-  { id:'one-sit', name:'앉기', people:1, tags:['일상','휴식'], pose:basePreset('sit') },
-  { id:'one-squat', name:'쪼그리기', people:1, tags:['일상','휴식'], pose:basePreset('squat') },
   { id:'one-lie', name:'눕기', people:1, tags:['일상','휴식'], pose:ONE_POSES.lie },
   { id:'one-lean', name:'기대기', people:1, tags:['일상','감정'], pose:ONE_POSES.lean },
+  { id:'one-kneel', name:'무릎 꿇기', people:1, tags:['일상','휴식'], pose:ONE_POSES.kneel },
+  { id:'one-lunge', name:'런지', people:1, tags:['액션','이동'], pose:ONE_POSES.lunge },
+  { id:'one-stretch', name:'기지개', people:1, tags:['일상','휴식'], pose:ONE_POSES.stretch },
+  { id:'one-lookback', name:'뒤돌아보기', people:1, tags:['일상','감정'], pose:ONE_POSES.lookBack },
+  { id:'one-prone', name:'엎드리기', people:1, tags:['일상','휴식'], pose:ONE_POSES.prone },
 
   { id:'two-shake', name:'악수', people:2, tags:['일상','상호작용'], a:PAIR_POSES.handshakeA, b:PAIR_POSES.handshakeB, layout:{ b:[0,0,0.72], face:'each' } },
   { id:'two-link', name:'팔짱', people:2, tags:['일상','친밀'], a:PAIR_POSES.armLinkA, b:PAIR_POSES.armLinkB, layout:{ b:[0.42,0,0.04], yaws:[0,0] } },
@@ -1781,7 +1796,7 @@ const DICT_PRESETS = [
   { id:'two-kiss', name:'키스', people:2, tags:['감정','친밀'], a:PAIR_POSES.kissA, b:PAIR_POSES.kissB, layout:{ b:[0,0,0.35], face:'each' } },
   { id:'two-shoulder', name:'어깨동무', people:2, tags:['일상','친밀'], a:PAIR_POSES.shoulderA, b:PAIR_POSES.shoulderB, layout:{ b:[0.40,0,0], yaws:[0,0] } },
   { id:'two-piggy', name:'업기', people:2, tags:['액션','친밀'], a:PAIR_POSES.piggyA, b:PAIR_POSES.piggyB, layout:{ b:[0,0.42,-0.18], yaws:[0,0] } },
-  { id:'two-carry', name:'안아 들기', people:2, tags:['액션','친밀'], a:PAIR_POSES.carryA, b:PAIR_POSES.carryB, layout:{ b:[0,0.48,0.12], face:'each' } },
+  { id:'two-carry', name:'안아 들기', people:2, tags:['액션','친밀'], a:PAIR_POSES.carryA, b:PAIR_POSES.carryB, layout:{ b:[0,0.84,0.30], yaws:[0,90] } },
   { id:'two-support', name:'부축', people:2, tags:['일상','상호작용'], a:PAIR_POSES.supportA, b:PAIR_POSES.supportB, layout:{ b:[0.38,0,0], yaws:[0,0] } },
   { id:'two-push', name:'밀기', people:2, tags:['액션','상호작용'], a:PAIR_POSES.pushA, b:PAIR_POSES.pushB, layout:{ b:[0,0,0.64], face:'each' } },
   { id:'two-pull', name:'당기기', people:2, tags:['액션','상호작용'], a:PAIR_POSES.pullA, b:PAIR_POSES.pullB, layout:{ b:[0,0,0.78], face:'each' } },
