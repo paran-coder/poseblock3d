@@ -1274,7 +1274,7 @@ const PRESETS = [
 ];
 
 // ------------------------------------------------------------
-// 프리셋 사전 v1.7.3
+// 프리셋 사전 v1.7.4
 // 기존 12개 PRESETS는 빠른 시작용 기본 프리셋으로 유지하고,
 // 사전은 people/tags/pose/layout 데이터만 추가하면 확장할 수 있도록 분리합니다.
 // ------------------------------------------------------------
@@ -1325,8 +1325,8 @@ const PAIR_POSES = {
   shoulderB: { j: { shoulderL: [0, 0, 70], elbowL: [-58, 0, 0], shoulderR: [0, 0, -5], elbowR: [-10, 0, 0] } },
   piggyA: { j: { spineLow: [24, 0, 0], spineMid: [10, 0, 0], ...sym({ hipL: [-18, 0, 5], kneeL: [22, 0, 0], shoulderL: [-30, 0, 26], elbowL: [-68, 0, 0] }) } },
   piggyB: { j: { spineLow: [-8, 0, 0], ...sym({ hipL: [-82, 0, 20], kneeL: [98, 0, 0], shoulderL: [-44, 0, 38], elbowL: [-66, 0, 0] }) } },
-  carryA: { j: { pelvis:[0,0,0], spineLow: [-4, 0, 0], spineMid: [-2, 0, 0], neck:[-2,0,0], hipL: [-6,0,0], hipR:[6,0,0], kneeL:[10,0,0], kneeR:[10,0,0], shoulderL:[-12,0,30], elbowL:[-36,0,0], shoulderR:[-16,0,-8], elbowR:[-48,0,0] },
-    ik: { wristL: [-0.48, 1.06, 0.22], wristR: [0.24, 0.84, -0.12] } },
+  carryA: { j: { pelvis:[0,0,0], spineLow: [-4, 0, 0], spineMid: [-2, 0, 0], neck:[-2,0,0], hipL: [-6,0,0], hipR:[6,0,0], kneeL:[10,0,0], kneeR:[10,0,0], shoulderL:[-16,0,42], elbowL:[-28,0,0], shoulderR:[-20,0,-28], elbowR:[-36,0,0] },
+    ik: { wristL: [-0.58, 1.05, 0.30], wristR: [0.40, 0.82, -0.26] } },
   carryB: { j: { pelvis: [-88, 0, 0], spineLow: [0,0,0], spineMid:[0,0,0], neck:[10,0,0], head:[8,0,0],
     hipL: [-36, 0, 8], kneeL: [78, 0, 0], ankleL:[4,0,0], hipR: [-20, 0, -6], kneeR: [60, 0, 0], ankleR:[2,0,0],
     shoulderL: [26, 0, 40], elbowL: [-52,0,0], shoulderR: [8,0,-10], elbowR: [-24,0,0] } },
