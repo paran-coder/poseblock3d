@@ -1,4 +1,4 @@
-// PoseBlock 3D 앱 전체 로직 (Three.js 장면, 24관절 캐릭터, 소품, 카메라, 캡처, 저장, 공유)
+// PoseBlock 3D 앱 전체 로직 (Three.js 장면, 24관절 캐릭터, 에셋, 카메라, 캡처, 저장, 공유, 프리셋 사전)
 (() => {
 'use strict';
 
@@ -1235,6 +1235,13 @@ const mirrorSpec = o => {
   }
   return r;
 };
+const mirrorPose = o => {
+  const r = {};
+  for (const [k, v] of Object.entries(o)) {
+    if (!/[LR]$/.test(k)) r[k] = [...v];
+  }
+  return { ...r, ...mirrorSpec(o) };
+};
 const sym = l => ({ ...l, ...mirrorSpec(l) });
 const PRESETS = [
   { id: 'stand', name: '기본 서기', j: sym({ shoulderL: [0, 0, 5] }) },
@@ -1265,6 +1272,88 @@ const PRESETS = [
   { id: 'jump', name: '점프', j: { ...sym({ shoulderL: [0, 0, 145], elbowL: [0, 0, 10] }),
     hipL: [-45, 0, 6], kneeL: [75, 0, 0], hipR: [-20, 0, -6], kneeR: [50, 0, 0], spineLow: [-6, 0, 0] }, lift: 0.4 },
 ];
+
+// ------------------------------------------------------------
+// 프리셋 사전 v1.7.0
+// 기존 12개 PRESETS는 빠른 시작용 기본 프리셋으로 유지하고,
+// 사전은 people/tags/pose/layout 데이터만 추가하면 확장할 수 있도록 분리합니다.
+// ------------------------------------------------------------
+const basePreset = id => PRESETS.find(p => p.id === id);
+const ONE_POSES = {
+  sprint: { j: {
+    pelvis: [0, -5, 0], spineLow: [22, 0, 0], spineMid: [10, 0, 0], neck: [-12, 0, 0], head: [-8, 0, 0],
+    hipL: [-82, 0, 2], kneeL: [104, 0, 0], ankleL: [12, 0, 0], hipR: [42, 0, -2], kneeR: [38, 0, 0], ankleR: [8, 0, 0],
+    shoulderL: [64, 0, 8], elbowL: [-96, 0, 0], shoulderR: [-62, 0, -8], elbowR: [-100, 0, 0] } },
+  land: { j: { ...sym({ hipL: [-78, 0, 8], kneeL: [96, 0, 0], ankleL: [-12, 0, 0], shoulderL: [-58, 0, 14], elbowL: [-26, 0, 0] }),
+    pelvis: [0, 0, 0], spineLow: [26, 0, 0], spineMid: [12, 0, 0], neck: [-16, 0, 0] } },
+  roll: { j: { ...sym({ hipL: [-122, 0, 8], kneeL: [138, 0, 0], ankleL: [-8, 0, 0], shoulderL: [-86, 0, 30], elbowL: [-88, 0, 0] }),
+    pelvis: [72, 0, 18], spineLow: [34, 0, 0], spineMid: [28, 0, 0], neck: [18, 0, 0], head: [18, 0, 0] } },
+  fall: { j: {
+    pelvis: [48, 0, -24], spineLow: [22, 0, 12], spineMid: [16, 0, 10], neck: [-16, 0, -12], head: [-12, 0, -10],
+    hipL: [-44, 0, 12], kneeL: [52, 0, 0], hipR: [18, 0, -10], kneeR: [24, 0, 0],
+    shoulderL: [-26, 0, 78], elbowL: [-28, 0, 0], shoulderR: [18, 0, -92], elbowR: [-18, 0, 0] } },
+  crawl: { j: { ...sym({ hipL: [-92, 0, 14], kneeL: [92, 0, 0], ankleL: [4, 0, 0], shoulderL: [-96, 0, 16], elbowL: [-72, 0, 0] }),
+    pelvis: [38, 0, 0], spineLow: [24, 0, 0], spineMid: [12, 0, 0], neck: [-28, 0, 0], head: [-12, 0, 0] } },
+  lie: { j: { ...sym({ shoulderL: [4, 0, 14], elbowL: [-12, 0, 0], hipL: [-4, 0, 4], kneeL: [8, 0, 0] }), pelvis: [88, 0, 0], neck: [-8, 0, 0] } },
+  lean: { j: {
+    pelvis: [0, -10, 8], spineLow: [-8, 0, -10], spineMid: [-5, 0, -8], head: [0, 8, 0],
+    hipL: [-8, 0, 0], kneeL: [12, 0, 0], hipR: [18, 0, 0], kneeR: [28, 0, 0],
+    shoulderL: [0, 0, 10], elbowL: [-24, 0, 0], shoulderR: [0, 0, -16], elbowR: [-20, 0, 0] } },
+};
+const PAIR_POSES = {
+  neutral: { j: sym({ shoulderL: [0, 0, 6], elbowL: [-8, 0, 0] }) },
+  handshakeA: { j: { shoulderR: [-58, 0, -8], elbowR: [-52, 0, 0], shoulderL: [0, 0, 7], elbowL: [-10, 0, 0], spineLow: [4, 0, 0] } },
+  handshakeB: { j: { shoulderR: [-58, 0, -8], elbowR: [-52, 0, 0], shoulderL: [0, 0, 7], elbowL: [-10, 0, 0], spineLow: [4, 0, 0] } },
+  hug: { j: { ...sym({ shoulderL: [-54, 0, 52], elbowL: [-72, 0, 0] }), spineLow: [5, 0, 0], neck: [-4, 0, 0] } },
+  kissA: { j: { ...sym({ shoulderL: [-34, 0, 30], elbowL: [-58, 0, 0] }), spineLow: [7, 0, 0], neck: [-7, 0, 0], head: [-7, 0, 0] } },
+  kissB: { j: { ...sym({ shoulderL: [-30, 0, 26], elbowL: [-52, 0, 0] }), spineLow: [5, 0, 0], neck: [5, 0, 0], head: [5, 0, 0] } },
+  armLinkA: { j: { shoulderR: [-8, 0, -28], elbowR: [-92, 0, 0], shoulderL: [0, 0, 7], elbowL: [-10, 0, 0] } },
+  armLinkB: { j: { shoulderL: [-8, 0, 28], elbowL: [-92, 0, 0], shoulderR: [0, 0, -7], elbowR: [-10, 0, 0] } },
+  shoulderA: { j: { shoulderR: [0, 0, -88], elbowR: [-8, 0, 0], shoulderL: [0, 0, 8], elbowL: [-12, 0, 0] } },
+  shoulderB: { j: { shoulderL: [0, 0, 70], elbowL: [-58, 0, 0], shoulderR: [0, 0, -5], elbowR: [-10, 0, 0] } },
+  piggyA: { j: { spineLow: [24, 0, 0], spineMid: [10, 0, 0], ...sym({ hipL: [-18, 0, 5], kneeL: [22, 0, 0], shoulderL: [-30, 0, 26], elbowL: [-68, 0, 0] }) } },
+  piggyB: { j: { spineLow: [-8, 0, 0], ...sym({ hipL: [-82, 0, 20], kneeL: [98, 0, 0], shoulderL: [-44, 0, 38], elbowL: [-66, 0, 0] }) } },
+  carryA: { j: { spineLow: [12, 0, 0], ...sym({ shoulderL: [-64, 0, 30], elbowL: [-86, 0, 0] }), hipL: [-6,0,0], hipR:[6,0,0] } },
+  carryB: { j: { pelvis: [78, 0, 0], spineLow: [8,0,0], ...sym({ hipL: [-38, 0, 8], kneeL: [54, 0, 0], shoulderL: [8, 0, 20], elbowL: [-18,0,0] }) } },
+  supportA: { j: { shoulderR: [0,0,-78], elbowR: [-50,0,0], spineLow:[4,0,0], hipR:[-10,0,0], kneeR:[18,0,0] } },
+  supportB: { j: { shoulderL: [0,0,72], elbowL: [-66,0,0], spineLow:[16,0,-8], hipL:[-34,0,0], kneeL:[54,0,0], hipR:[8,0,0], kneeR:[18,0,0] } },
+  pushA: { j: { ...sym({ shoulderL: [-82,0,16], elbowL: [-8,0,0] }), spineLow:[18,0,0], hipL:[-18,0,0], hipR:[12,0,0] } },
+  pushB: { j: { ...sym({ shoulderL: [-18,0,32], elbowL: [-46,0,0] }), spineLow:[-16,0,0], hipL:[20,0,0], kneeL:[18,0,0], hipR:[-12,0,0] } },
+  pullA: { j: { shoulderR: [-62,0,-10], elbowR: [-98,0,0], shoulderL:[-20,0,8], elbowL:[-40,0,0], spineLow:[-10,0,0] } },
+  pullB: { j: { shoulderR: [-62,0,-10], elbowR: [-98,0,0], shoulderL:[-18,0,8], elbowL:[-34,0,0], spineLow:[14,0,0] } },
+  walkA: { j: basePreset('walk').j },
+  walkB: { j: mirrorPose(basePreset('walk').j) },
+};
+
+const DICT_PRESETS = [
+  { id:'one-walk', name:'걷기', people:1, tags:['일상','이동'], pose:basePreset('walk') },
+  { id:'one-run', name:'달리기', people:1, tags:['액션','이동'], pose:basePreset('run') },
+  { id:'one-sprint', name:'전력질주', people:1, tags:['액션','이동'], pose:ONE_POSES.sprint },
+  { id:'one-jump', name:'점프', people:1, tags:['액션','이동'], pose:basePreset('jump') },
+  { id:'one-land', name:'착지', people:1, tags:['액션','이동'], pose:ONE_POSES.land },
+  { id:'one-roll', name:'구르기', people:1, tags:['액션','이동'], pose:ONE_POSES.roll },
+  { id:'one-fall', name:'넘어지기', people:1, tags:['액션','감정'], pose:ONE_POSES.fall },
+  { id:'one-crawl', name:'기어가기', people:1, tags:['액션','이동'], pose:ONE_POSES.crawl },
+  { id:'one-sit', name:'앉기', people:1, tags:['일상','휴식'], pose:basePreset('sit') },
+  { id:'one-squat', name:'쪼그리기', people:1, tags:['일상','휴식'], pose:basePreset('squat') },
+  { id:'one-lie', name:'눕기', people:1, tags:['일상','휴식'], pose:ONE_POSES.lie },
+  { id:'one-lean', name:'기대기', people:1, tags:['일상','감정'], pose:ONE_POSES.lean },
+
+  { id:'two-shake', name:'악수', people:2, tags:['일상','상호작용'], a:PAIR_POSES.handshakeA, b:PAIR_POSES.handshakeB, layout:{ b:[0,0,0.72], face:'each' } },
+  { id:'two-link', name:'팔짱', people:2, tags:['일상','친밀'], a:PAIR_POSES.armLinkA, b:PAIR_POSES.armLinkB, layout:{ b:[0.42,0,0.04], yaws:[0,0] } },
+  { id:'two-hug', name:'포옹', people:2, tags:['감정','친밀'], a:PAIR_POSES.hug, b:PAIR_POSES.hug, layout:{ b:[0,0,0.42], face:'each' } },
+  { id:'two-kiss', name:'키스', people:2, tags:['감정','친밀'], a:PAIR_POSES.kissA, b:PAIR_POSES.kissB, layout:{ b:[0,0,0.35], face:'each' } },
+  { id:'two-shoulder', name:'어깨동무', people:2, tags:['일상','친밀'], a:PAIR_POSES.shoulderA, b:PAIR_POSES.shoulderB, layout:{ b:[0.40,0,0], yaws:[0,0] } },
+  { id:'two-piggy', name:'업기', people:2, tags:['액션','친밀'], a:PAIR_POSES.piggyA, b:PAIR_POSES.piggyB, layout:{ b:[0,0.42,-0.18], yaws:[0,0] } },
+  { id:'two-carry', name:'안아 들기', people:2, tags:['액션','친밀'], a:PAIR_POSES.carryA, b:PAIR_POSES.carryB, layout:{ b:[0,0.48,0.12], face:'each' } },
+  { id:'two-support', name:'부축', people:2, tags:['일상','상호작용'], a:PAIR_POSES.supportA, b:PAIR_POSES.supportB, layout:{ b:[0.38,0,0], yaws:[0,0] } },
+  { id:'two-push', name:'밀기', people:2, tags:['액션','상호작용'], a:PAIR_POSES.pushA, b:PAIR_POSES.pushB, layout:{ b:[0,0,0.64], face:'each' } },
+  { id:'two-pull', name:'당기기', people:2, tags:['액션','상호작용'], a:PAIR_POSES.pullA, b:PAIR_POSES.pullB, layout:{ b:[0,0,0.78], face:'each' } },
+  { id:'two-face', name:'마주보기', people:2, tags:['일상','감정'], a:PAIR_POSES.neutral, b:PAIR_POSES.neutral, layout:{ b:[0,0,0.82], face:'each' } },
+  { id:'two-walk', name:'함께 걷기', people:2, tags:['일상','이동','친밀'], a:PAIR_POSES.walkA, b:PAIR_POSES.walkB, layout:{ b:[0.42,0,0.06], yaws:[0,0] } },
+];
+const DICT_TAGS = [...new Set(DICT_PRESETS.flatMap(p => p.tags))];
+
 // 발바닥의 가장 낮은 높이 (월드)
 function footMinY(c) {
   c.root.updateMatrixWorld(true);
@@ -1286,6 +1375,142 @@ function applyPresetTo(c, p) {
   }
   groundChar(c); c.root.position.y += (p.lift || 0) * (c.root.scale.x); applyChar(c);
 }
+
+const dictState = { people: 'all', tags: new Set(), query: '' };
+const dictThumbs = {};
+let dictInited = false;
+function localOffset(v, yaw, scale = 1) {
+  const x = (v && v[0] || 0) * scale, z = (v && v[2] || 0) * scale, c = Math.cos(yaw), s = Math.sin(yaw);
+  return V3(x * c + z * s, (v && v[1] || 0) * scale, -x * s + z * c);
+}
+function applyPairPresetCore(a, b, p, opts = {}) {
+  if (!a || !b || a === b) return false;
+  const anchor = opts.anchor ? opts.anchor.clone() : a.root.position.clone();
+  const baseYaw = Number.isFinite(opts.baseYaw) ? opts.baseYaw : a.yaw;
+  const pairScale = 1; // 2인 프리셋은 175cm 동일 키 기준. 키 차이는 사용자가 적용 후 미세 조정합니다.
+  applyPresetTo(a, p.a); applyPresetTo(b, p.b);
+  const ay = a.root.position.y, by = b.root.position.y, la = p.layout && p.layout.a || [0,0,0], lb = p.layout && p.layout.b || [0,0,0];
+  const oa = localOffset(la, baseYaw, pairScale), ob = localOffset(lb, baseYaw, pairScale);
+  a.root.position.set(anchor.x + oa.x, ay + oa.y, anchor.z + oa.z);
+  b.root.position.set(anchor.x + ob.x, by + ob.y, anchor.z + ob.z);
+  if (p.layout && p.layout.face === 'each') {
+    faceTowards(a, b.root.position.x, b.root.position.z);
+    faceTowards(b, a.root.position.x, a.root.position.z);
+  } else {
+    const ys = p.layout && p.layout.yaws || [0,0];
+    a.yaw = baseYaw + (ys[0] || 0) * D2R; b.yaw = baseYaw + (ys[1] || 0) * D2R;
+  }
+  applyChar(a); applyChar(b); mark();
+  return true;
+}
+function disposeTempChar(c) { if (c) disposeChar(c); }
+function pairThumb(p) {
+  const a = createCharacter({ name:'', color:'#e5484d', pos:[0,0,0], height:175, yaw:0 });
+  const b = createCharacter({ name:'', color:'#3e63dd', pos:[0,0,0], height:175, yaw:0 });
+  a.aids.visible = b.aids.visible = false; a.label.style.display = b.label.style.display = 'none';
+  try {
+    applyPairPresetCore(a, b, p, { anchor: V3(-((p.layout && p.layout.b && p.layout.b[0]) || 0) / 2, 0, -((p.layout && p.layout.b && p.layout.b[2]) || 0) / 2), baseYaw: 0 });
+    a.root.updateMatrixWorld(true); b.root.updateMatrixWorld(true);
+    const pts = [];
+    for (const c of [a,b]) for (const n of JN) pts.push(c.joints[n].getWorldPosition(V3()));
+    const box = new THREE.Box3().setFromPoints(pts); box.expandByScalar(0.18);
+    const ctr = box.getCenter(V3()), size = box.getSize(V3()), aspect = 4/3;
+    const cam = new THREE.PerspectiveCamera(31, aspect, 0.1, 80), tan = Math.tan(THREE.MathUtils.degToRad(15.5));
+    const dist = Math.max(size.y / (2*tan), size.x / (2*tan*aspect), size.z / (2*tan)) * 1.12 + 0.25;
+    const f = V3(0.72, 0.22, 1).normalize(); cam.position.copy(ctr).addScaledVector(f, dist); cam.lookAt(ctr); cam.updateMatrixWorld(true);
+    return renderWith(cam, 240, 180, { solo:true, grid:'off' }).toDataURL('image/jpeg', 0.82);
+  } finally { disposeTempChar(a); disposeTempChar(b); mark(); }
+}
+function dictThumb(p) {
+  if (dictThumbs[p.id]) return dictThumbs[p.id];
+  if (p.people === 1) {
+    const c = createCharacter({ name:'', color:'#4f5d78', pos:[0,0,0], height:175, yaw:0 });
+    c.aids.visible = false; c.label.style.display = 'none';
+    try { applyPresetTo(c, p.pose); dictThumbs[p.id] = poseThumb(c, p.id.includes('lie') || p.id.includes('roll') ? 0.9 : 0.55); }
+    finally { disposeTempChar(c); mark(); }
+  } else dictThumbs[p.id] = pairThumb(p);
+  return dictThumbs[p.id];
+}
+function scheduleDictThumb(p, img, loading) {
+  if (dictThumbs[p.id]) { img.src = dictThumbs[p.id]; loading.hidden = true; return; }
+  setTimeout(() => {
+    if (!img.isConnected || $('#presetDict').hidden) return;
+    try { img.src = dictThumb(p); loading.hidden = true; }
+    catch (e) { loading.textContent = '미리보기 없음'; }
+  }, 0);
+}
+function matchingDictPresets() {
+  const q = dictState.query.trim().toLowerCase();
+  return DICT_PRESETS.filter(p => {
+    if (dictState.people !== 'all' && String(p.people) !== dictState.people) return false;
+    if ([...dictState.tags].some(t => !p.tags.includes(t))) return false;
+    if (q && ![p.name, ...p.tags, `${p.people}인`].join(' ').toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+function renderPresetDict() {
+  const g = $('#presetDictGrid'); if (!g) return; g.innerHTML = '';
+  const arr = matchingDictPresets(); $('#presetCount').textContent = `${arr.length}개`;
+  if (!arr.length) { const x = el('div','dict-empty'); x.textContent = '조건에 맞는 프리셋이 없습니다.'; g.append(x); return; }
+  arr.forEach(p => {
+    const card = el('button','dict-card'); card.type = 'button'; card.title = p.people === 1 ? '선택한 캐릭터에 적용' : 'A/B 캐릭터를 선택해 적용';
+    const th = el('div','dict-thumb'), img = el('img'), loading = el('span','dict-loading'), badge = el('span','dict-person');
+    loading.textContent = '미리보기 생성 중…'; badge.textContent = `${p.people}인`; img.alt = `${p.name} 프리셋 미리보기`;
+    th.append(img, loading, badge);
+    const meta = el('div','dict-meta'), nm = el('div','dict-name'), tags = el('div','dict-card-tags'); nm.textContent = p.name;
+    p.tags.forEach(t => { const s = el('span'); s.textContent = t; tags.append(s); }); meta.append(nm,tags); card.append(th,meta);
+    card.onclick = () => applyDictPreset(p); g.append(card); scheduleDictThumb(p,img,loading);
+  });
+}
+function ensureSecondCharacterForPair() {
+  if (chars.length >= 2) return;
+  if (chars.length >= MAX_CHARS) return;
+  const c = createCharacter(defaultChar(chars.length, chars.map(x => x.color))); chars.push(c); commit(); syncPanel();
+  toast('2인 프리셋 적용을 위해 두 번째 캐릭터를 추가했습니다.', 3000);
+}
+function openPairPresetDialog(p) {
+  ensureSecondCharacterForPair();
+  if (chars.length < 2) { toast('2인 프리셋을 적용하려면 캐릭터가 2명 필요합니다.'); return; }
+  const wrap = el('div','pair-role-box'), makeRole = (label, selectedId) => {
+    const box = el('div','pair-role'), b = el('b'), s = el('select'); b.textContent = label;
+    chars.forEach(c => { const o = el('option'); o.value = c.id; o.textContent = c.name; if (c.id === selectedId) o.selected = true; s.append(o); }); box.append(b,s); return {box,s};
+  };
+  const first = selChar() || chars[0], second = chars.find(c => c !== first) || chars[1];
+  const ar = makeRole('A 역할 캐릭터', first.id), br = makeRole('B 역할 캐릭터', second.id); wrap.append(ar.box, br.box);
+  const note = el('div','pair-note'); note.textContent = '2인 프리셋은 동일 키 기준입니다. 적용 후 위치와 관절을 자유롭게 미세 조정할 수 있습니다.';
+  const fixDistinct = changed => { if (ar.s.value !== br.s.value) return; const other = chars.find(c => c.id !== changed.value); if (other) (changed === ar.s ? br.s : ar.s).value = other.id; };
+  ar.s.onchange = () => fixDistinct(ar.s); br.s.onchange = () => fixDistinct(br.s);
+  showDialog(`2인 프리셋 · ${p.name}`, [wrap,note], [
+    { label:'적용', primary:true, keep:true, onClick:() => {
+      const a = chars.find(c => c.id === ar.s.value), b = chars.find(c => c.id === br.s.value);
+      if (!a || !b || a === b) { toast('A와 B에 서로 다른 캐릭터를 선택해 주세요.'); return; }
+      const anchor = a.root.position.clone(), baseYaw = a.yaw;
+      applyPairPresetCore(a,b,p,{anchor,baseYaw}); selectChar(a); commit(); closeDialog(); closePresetDict();
+      toast(`'${p.name}' 프리셋을 ${a.name} / ${b.name}에 적용했습니다.`);
+    } },
+    { label:'취소' },
+  ]);
+}
+function applyDictPreset(p) {
+  if (p.people === 2) { openPairPresetDialog(p); return; }
+  const c = selChar() || chars[0]; if (!c) return;
+  applyPresetTo(c,p.pose); selectChar(c); commit(); closePresetDict(); toast(`'${p.name}' 프리셋을 ${c.name}에 적용했습니다.`);
+}
+function initPresetDict() {
+  if (dictInited) return; dictInited = true;
+  const tg = $('#presetTags');
+  DICT_TAGS.forEach(t => { const b = el('button','dict-tag'); b.type='button'; b.textContent=t; b.dataset.tag=t; b.onclick=() => {
+    if (dictState.tags.has(t)) dictState.tags.delete(t); else dictState.tags.add(t); b.classList.toggle('on',dictState.tags.has(t)); renderPresetDict();
+  }; tg.append(b); });
+  $('#presetSearch').addEventListener('input', e => { dictState.query=e.target.value; renderPresetDict(); });
+  $('#presetPeople').querySelectorAll('button').forEach(b => b.onclick=() => {
+    dictState.people=b.dataset.n; $('#presetPeople').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b)); renderPresetDict();
+  });
+}
+function openPresetDict() { initPresetDict(); $('#presetDict').hidden=false; $('#presetDictBtn').classList.add('pri'); renderPresetDict(); $('#presetSearch').focus(); }
+function closePresetDict() { $('#presetDict').hidden=true; $('#presetDictBtn').classList.remove('pri'); stage.focus && stage.focus(); }
+$('#presetDictBtn').onclick = () => $('#presetDict').hidden ? openPresetDict() : closePresetDict(); $('#presetDictClose').onclick = closePresetDict;
+
 const presetThumbs = {};
 function ensurePresetThumbs() {
   for (const p of PRESETS) {
@@ -1447,7 +1672,6 @@ async function openShare(kind, name, data, thumb) {
   ]);
   if (url) { ta.focus(); ta.select(); }
 }
-$('#shareBtn').onclick = () => openShare('scene', '내 씬', getFull(), '');
 $('#shareNow').onclick = () => {
   const nm = $('#saveName').value.trim();
   if (tab === 'poses') { const c = selChar() || chars[0]; if (!c) return; const q = {}; JN.forEach(k => { q[k] = c.joints[k].quaternion.toArray().map(r5); }); openShare('pose', nm || '내 포즈', q, ''); }
@@ -1577,7 +1801,8 @@ function moveCamKey(k, step) {
 
 // 단축키
 window.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && !$('#dlg').hidden) { closeDialog(); return; } // 입력칸에 포커스가 있어도 공유 창은 Esc로 닫힘
+  if (e.key === 'Escape' && !$('#dlg').hidden) { closeDialog(); return; } // 입력칸에 포커스가 있어도 대화상자는 Esc로 닫힘
+  if (!$('#presetDict').hidden) { if (e.key === 'Escape') closePresetDict(); return; }
   if (e.code === 'Space' && !blocksSpacePan(e.target) && !e.ctrlKey && !e.metaKey && !e.altKey) {
     e.preventDefault(); spacePan = true; if (!drag) stage.style.cursor = 'grab'; return;
   }

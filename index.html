@@ -28,12 +28,12 @@
 <meta name="twitter:image" content="https://poseblock3d.vercel.app/og-image.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%233e63dd'/%3E%3Ccircle cx='32' cy='18' r='7' fill='white'/%3E%3Cpath d='M32 26v18M32 32l-12 8M32 32l12 8M32 44l-9 12M32 44l9 12' stroke='white' stroke-width='5' stroke-linecap='round' fill='none'/%3E%3C/svg%3E">
 
-<link rel="stylesheet" href="css/style.css?v=1.6.5">
+<link rel="stylesheet" href="css/style.css?v=1.7.0">
 </head>
 <body>
 
 <header>
-  <a class="brand" href="https://poseblock3d.vercel.app/" aria-label="PoseBlock 3D 홈페이지" title="PoseBlock 3D 홈페이지로 이동"><span class="logo">◈</span><span class="t">PoseBlock <b>3D</b></span></a><span class="app-ver" aria-label="현재 버전">v1.6.9</span>
+  <a class="brand" href="https://poseblock3d.vercel.app/" aria-label="PoseBlock 3D 홈페이지" title="PoseBlock 3D 홈페이지로 이동"><span class="logo">◈</span><span class="t">PoseBlock <b>3D</b></span></a><span class="app-ver" aria-label="현재 버전">v1.7.0</span>
   <div class="grp">
     <button class="btn" id="undo" title="되돌리기 (Ctrl+Z)">↶</button>
     <button class="btn" id="redo" title="다시 실행 (Ctrl+Shift+Z)">↷</button>
@@ -44,10 +44,33 @@
     <button data-v="cam" title="출력 카메라 시점 (Tab)">카메라 뷰</button>
   </div>
   <span class="sp"></span>
-  <button class="btn" id="shareBtn" title="현재 씬을 링크나 파일로 공유">공유</button>
+  <button class="btn" id="presetDictBtn" title="다양한 1인·2인 포즈를 찾아 적용">프리셋 사전</button>
   <button class="btn pri" id="capCopy" title="클립보드에 복사 (C)">📋 캡처</button>
   <button class="btn" id="capPng" title="PNG 파일로 저장 (P)">PNG 저장</button>
 </header>
+
+<section id="presetDict" hidden aria-label="프리셋 사전">
+  <div class="dict-shell">
+    <div class="dict-head">
+      <div>
+        <h2>프리셋 사전</h2>
+        <p>기본 프리셋보다 다양한 1인·2인 자세를 검색하고 현재 장면에 적용합니다.</p>
+      </div>
+      <button class="btn" id="presetDictClose">작업 화면으로 돌아가기</button>
+    </div>
+    <div class="dict-tools">
+      <input type="text" id="presetSearch" placeholder="프리셋 이름이나 태그 검색" autocomplete="off">
+      <div class="seg" id="presetPeople" aria-label="인원 필터">
+        <button data-n="all" class="on">전체</button><button data-n="1">1인</button><button data-n="2">2인</button>
+      </div>
+    </div>
+    <div class="dict-filter-row">
+      <div class="dict-tags" id="presetTags" aria-label="태그 필터"></div>
+      <span class="dict-count" id="presetCount"></span>
+    </div>
+    <div class="dict-grid" id="presetDictGrid"></div>
+  </div>
+</section>
 
 <aside id="left">
   <div class="seg full" id="leftTabs">
@@ -188,7 +211,7 @@
 
 <aside id="right">
   <div class="seg full" id="libTabs">
-    <button data-t="presets" class="on">프리셋</button><button data-t="poses">내 포즈</button><button data-t="scenes">씬</button>
+    <button data-t="presets" class="on">기본 프리셋</button><button data-t="poses">내 포즈</button><button data-t="scenes">씬</button>
   </div>
   <div id="saveRow" hidden>
     <input type="text" id="saveName" placeholder="이름 (비우면 자동)" maxlength="20">
@@ -206,6 +229,6 @@
 <div id="dlg" hidden><div class="dlg-box"><h4 id="dlgTitle"></h4><div id="dlgBody" style="display:flex;flex-direction:column;gap:8px"></div><div class="btns" id="dlgBtns" style="margin:0"></div></div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="js/app.js?v=1.6.5"></script>
+<script src="js/app.js?v=1.7.0"></script>
 </body>
 </html>
