@@ -792,9 +792,17 @@ stage.addEventListener('pointerdown', e => {
     if (g) drag = { type: 'turn', c, plane: pl, off: wrapRad(feetYaw(c) - Math.atan2(g.x - c.root.position.x, g.z - c.root.position.z)), moved: false };
     return;
   }
-  if (hit.kind === 'base' || hit.kind === 'char') {
+  if (hit.kind === 'base') {
     selectChar(hit.c);
     drag = startMove(hit.c, new THREE.Plane(V3(0, 1, 0), 0), false); return;
+  }
+  if (hit.kind === 'char') {
+    const c = hit.c; selectChar(c);
+    if (e.shiftKey) {
+      const n = activeCam().getWorldDirection(V3()); n.y = 0; if (n.lengthSq() < 1e-6) n.set(0, 0, 1); n.normalize();
+      drag = startMove(c, new THREE.Plane().setFromNormalAndCoplanarPoint(n, c.root.position), true);
+    } else drag = startMove(c, new THREE.Plane(V3(0, 1, 0), 0), false);
+    return;
   }
   const { c, name } = hit, def = DEF[name], jo = c.joints[name];
   selectJoint(c, name);

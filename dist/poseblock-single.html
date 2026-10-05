@@ -190,7 +190,7 @@ kbd{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;background:#eef0f3;bor
 <body>
 
 <header>
-  <a class="brand" href="https://poseblock3d.vercel.app/" aria-label="PoseBlock 3D 홈페이지" title="PoseBlock 3D 홈페이지로 이동"><span class="logo">◈</span><span class="t">PoseBlock <b>3D</b></span></a><span class="app-ver" aria-label="현재 버전">v1.5.2</span>
+  <a class="brand" href="https://poseblock3d.vercel.app/" aria-label="PoseBlock 3D 홈페이지" title="PoseBlock 3D 홈페이지로 이동"><span class="logo">◈</span><span class="t">PoseBlock <b>3D</b></span></a><span class="app-ver" aria-label="현재 버전">v1.5.3</span>
   <div class="grp">
     <button class="btn" id="undo" title="되돌리기 (Ctrl+Z)">↶</button>
     <button class="btn" id="redo" title="다시 실행 (Ctrl+Shift+Z)">↷</button>
@@ -1159,9 +1159,17 @@ stage.addEventListener('pointerdown', e => {
     if (g) drag = { type: 'turn', c, plane: pl, off: wrapRad(feetYaw(c) - Math.atan2(g.x - c.root.position.x, g.z - c.root.position.z)), moved: false };
     return;
   }
-  if (hit.kind === 'base' || hit.kind === 'char') {
+  if (hit.kind === 'base') {
     selectChar(hit.c);
     drag = startMove(hit.c, new THREE.Plane(V3(0, 1, 0), 0), false); return;
+  }
+  if (hit.kind === 'char') {
+    const c = hit.c; selectChar(c);
+    if (e.shiftKey) {
+      const n = activeCam().getWorldDirection(V3()); n.y = 0; if (n.lengthSq() < 1e-6) n.set(0, 0, 1); n.normalize();
+      drag = startMove(c, new THREE.Plane().setFromNormalAndCoplanarPoint(n, c.root.position), true);
+    } else drag = startMove(c, new THREE.Plane(V3(0, 1, 0), 0), false);
+    return;
   }
   const { c, name } = hit, def = DEF[name], jo = c.joints[name];
   selectJoint(c, name);
