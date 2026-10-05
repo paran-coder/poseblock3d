@@ -1163,7 +1163,7 @@ function setPropScale(p, axis, v) {
 }
 bindProp('#pSx', (p, v) => setPropScale(p, 0, v / 100)); bindProp('#pSy', (p, v) => setPropScale(p, 1, v / 100)); bindProp('#pSz', (p, v) => setPropScale(p, 2, v / 100));
 bindProp('#pYaw', (p, v) => { p.yaw = v * D2R; }); bindProp('#pLift', (p, v) => { p.root.position.y = v / 100; });
-function deleteProp() { const p = selProp(); if (!p) return; disposeProp(p); props = props.filter(q => q !== p); sel.p = null; syncPanel(); commit(); }
+function deleteProp() { const p = selProp(); if (!p) return; disposeProp(p); props = props.filter(q => q !== p); sel.p = null; syncPanel(); mark(); commit(); }
 $('#propDel').onclick = deleteProp;
 $('#propDup').onclick = () => {
   const p = selProp(); if (!p || props.length >= MAX_PROPS) return;
