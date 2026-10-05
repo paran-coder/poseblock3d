@@ -117,7 +117,9 @@ input[type=text]{
 }
 input[type=text]:focus{outline:2px solid var(--acc-soft);border-color:var(--acc)}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
-.chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border:1px solid var(--line);border-radius:99px;background:#fff;font-weight:600}
+#propChips{margin-bottom:10px;align-items:flex-start}
+#propCtl{margin-top:2px}
+.chip{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 11px;border:1px solid var(--line);border-radius:99px;background:#fff;font-weight:600;line-height:1.25}
 .chip i{width:10px;height:10px;border-radius:50%}
 .chip.on{border-color:var(--acc);background:var(--acc-soft)}
 .btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}

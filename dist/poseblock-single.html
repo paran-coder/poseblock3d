@@ -148,7 +148,9 @@ input[type=text]{
 }
 input[type=text]:focus{outline:2px solid var(--acc-soft);border-color:var(--acc)}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
-.chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border:1px solid var(--line);border-radius:99px;background:#fff;font-weight:600}
+#propChips{margin-bottom:10px;align-items:flex-start}
+#propCtl{margin-top:2px}
+.chip{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 11px;border:1px solid var(--line);border-radius:99px;background:#fff;font-weight:600;line-height:1.25}
 .chip i{width:10px;height:10px;border-radius:50%}
 .chip.on{border-color:var(--acc);background:var(--acc-soft)}
 .btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
@@ -190,7 +192,7 @@ kbd{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;background:#eef0f3;bor
 <body>
 
 <header>
-  <a class="brand" href="https://poseblock3d.vercel.app/" aria-label="PoseBlock 3D 홈페이지" title="PoseBlock 3D 홈페이지로 이동"><span class="logo">◈</span><span class="t">PoseBlock <b>3D</b></span></a><span class="app-ver" aria-label="현재 버전">v1.6.5</span>
+  <a class="brand" href="https://poseblock3d.vercel.app/" aria-label="PoseBlock 3D 홈페이지" title="PoseBlock 3D 홈페이지로 이동"><span class="logo">◈</span><span class="t">PoseBlock <b>3D</b></span></a><span class="app-ver" aria-label="현재 버전">v1.6.6</span>
   <div class="grp">
     <button class="btn" id="undo" title="되돌리기 (Ctrl+Z)">↶</button>
     <button class="btn" id="redo" title="다시 실행 (Ctrl+Shift+Z)">↷</button>
@@ -725,8 +727,25 @@ const PROP_TYPES = {
   pillar: { name: '기둥', color: '#adb5bd', build: m => [cyM(m, 0.15, 2.5, 0, 1.25, 0)] },
   ball: { name: '공', color: '#e76f51', build: m => { const o = new THREE.Mesh(new THREE.SphereGeometry(0.25, 24, 16), m); o.position.y = 0.25; return [o]; } },
   car: { name: '자동차', color: '#e76f51', build: (m, d) => {
-    const a = [bxM(m, 1.8, 0.5, 4.2, 0, 0.55, 0), bxM(m, 1.55, 0.5, 2.0, 0, 1.05, -0.2)];
-    for (const sx of [-1, 1]) for (const sz of [-1, 1]) a.push(cyM(d, 0.33, 0.22, sx * 0.9, 0.33, sz * 1.3, Math.PI / 2));
+    // 창문이 뚫린 세단 형태: 하부 차체 + 루프 + 기둥 + 내부 좌석 + 왼쪽 운전대
+    const a = [
+      bxM(m, 1.82, 0.42, 4.15, 0, 0.34, 0),
+      bxM(m, 1.62, 0.28, 1.12, 0, 0.71, 1.34),
+      bxM(m, 1.5, 0.22, 0.78, 0, 0.67, -1.52),
+      bxM(m, 1.34, 0.16, 1.64, 0, 1.29, -0.05),
+      bxM(m, 1.52, 0.12, 1.92, 0, 0.52, -0.06),
+      bxM(m, 1.34, 0.34, 0.08, 0, 1.05, 0.92),
+      bxM(m, 1.25, 0.28, 0.08, 0, 1.01, -1.0),
+      bxM(m, 0.08, 0.54, 0.08, -0.63, 1.0, 0.78),
+      bxM(m, 0.08, 0.54, 0.08, 0.63, 1.0, 0.78),
+      bxM(m, 0.08, 0.54, 0.08, -0.63, 1.0, -0.76),
+      bxM(m, 0.08, 0.54, 0.08, 0.63, 1.0, -0.76),
+      bxM(d, 0.34, 0.14, 0.36, -0.34, 0.63, 0.18), bxM(d, 0.3, 0.5, 0.22, -0.34, 0.95, 0.1),
+      bxM(d, 0.34, 0.14, 0.36, 0.34, 0.63, 0.18), bxM(d, 0.3, 0.5, 0.22, 0.34, 0.95, 0.1),
+      bxM(d, 0.92, 0.14, 0.38, 0, 0.63, -0.58), bxM(d, 0.92, 0.34, 0.22, 0, 0.84, -0.73),
+      torM(d, 0.14, 0.024, -0.41, 1.02, 0.82, 0, 0.35, Math.PI / 2)
+    ];
+    for (const sx of [-1, 1]) for (const sz of [-1.28, 1.28]) a.push(cyM(d, 0.33, 0.22, sx * 0.9, 0.33, sz, Math.PI / 2));
     return a; } },
   dog: { name: '개', color: '#b08968', build: (m, d) => {
     // 튼튼한 직사각 몸통 + 긴 주둥이 + 아래로 처지는 귀/꼬리로 고양이와 실루엣 분리
@@ -789,15 +808,46 @@ const PROP_TYPES = {
     const a = [torM(d, 0.42, 0.08, 0, 0.5, -0.9, 0, Math.PI / 2), torM(d, 0.42, 0.08, 0, 0.5, 0.9, 0, Math.PI / 2), bxM(m, 0.48, 0.42, 1.0, 0, 0.68, 0.05), bxM(d, 0.48, 0.12, 0.6, 0, 0.96, -0.25)];
     a.push(rodM(m,0.055,[0,0.55,-0.7],[0,0.8,0]),rodM(m,0.055,[0,0.5,0.9],[0,1.08,0.58]),bxM(m,0.7,0.04,0.04,0,1.08,0.58)); return a; } },
   bus: { name: '버스', color: '#e9c46a', build: (m, d) => {
-    // 하나로 이어진 긴 승객실, 반복 창문, 앞유리/출입문으로 버스 실루엣 강조
-    const a = [bxM(m, 1.9, 1.65, 5.2, 0, 1.08, 0), bxM(d, 1.55, 0.58, 0.06, 0, 1.48, 2.63), bxM(d, 0.06, 0.92, 0.62, 0.965, 1.22, 1.72)];
+    // 창문이 뚫린 버스: 낮은 차체 + 루프 + 기둥 + 여러 좌석 + 왼쪽 운전대
+    const a = [
+      bxM(m, 1.92, 0.36, 5.2, 0, 0.34, 0),
+      bxM(m, 1.92, 0.12, 5.0, 0, 0.64, 0),
+      bxM(m, 1.78, 0.16, 5.0, 0, 1.88, 0),
+      bxM(m, 1.62, 0.46, 0.1, 0, 1.4, 2.45),
+      bxM(m, 1.55, 0.24, 0.08, 0, 1.18, -2.42),
+      bxM(m, 0.08, 1.18, 0.08, -0.89, 1.3, 2.0), bxM(m, 0.08, 1.18, 0.08, 0.89, 1.3, 2.0),
+      bxM(m, 0.08, 1.18, 0.08, -0.89, 1.3, 1.0), bxM(m, 0.08, 1.18, 0.08, 0.89, 1.3, 1.0),
+      bxM(m, 0.08, 1.18, 0.08, -0.89, 1.3, 0.0), bxM(m, 0.08, 1.18, 0.08, 0.89, 1.3, 0.0),
+      bxM(m, 0.08, 1.18, 0.08, -0.89, 1.3, -1.0), bxM(m, 0.08, 1.18, 0.08, 0.89, 1.3, -1.0),
+      bxM(m, 0.08, 1.18, 0.08, -0.89, 1.3, -2.0), bxM(m, 0.08, 1.18, 0.08, 0.89, 1.3, -2.0),
+      bxM(d, 0.38, 0.12, 0.34, -0.38, 0.73, 1.8), bxM(d, 0.32, 0.56, 0.22, -0.38, 1.06, 1.7),
+      torM(d, 0.13, 0.022, -0.56, 1.18, 2.08, 0, 0.4, Math.PI / 2)
+    ];
+    const seatRows = [1.0, 0.1, -0.8, -1.7];
+    for (const z of seatRows) {
+      a.push(bxM(d, 0.3, 0.11, 0.28, -0.46, 0.73, z), bxM(d, 0.24, 0.5, 0.18, -0.46, 1.03, z - 0.05));
+      a.push(bxM(d, 0.3, 0.11, 0.28, 0.46, 0.73, z), bxM(d, 0.24, 0.5, 0.18, 0.46, 1.03, z - 0.05));
+    }
     for (const sx of [-1, 1]) for (const z of [-1.65, 1.65]) a.push(cyM(d, 0.35, 0.24, sx * 0.97, 0.35, z, Math.PI / 2));
-    for (const sx of [-1, 1]) for (const z of [-1.72,-0.82,0.08,0.98]) a.push(bxM(d, 0.045, 0.52, 0.66, sx * 0.968, 1.48, z));
     return a; } },
   truck: { name: '트럭', color: '#8d99ae', build: (m, d) => {
-    // 앞쪽 운전석과 뒤쪽 열린 적재함을 분리한 픽업/화물 트럭형 실루엣
-    const a = [bxM(m, 1.85, 1.35, 1.55, 0, 0.98, 1.25), bxM(m, 1.95, 0.22, 2.45, 0, 0.58, -0.72), bxM(m, 0.13, 0.72, 2.45, -0.91, 0.89, -0.72), bxM(m, 0.13, 0.72, 2.45, 0.91, 0.89, -0.72), bxM(m, 1.95, 0.72, 0.13, 0, 0.89, -1.9), bxM(d, 1.42, 0.42, 0.055, 0, 1.2, 2.04)];
-    for (const sx of [-1, 1]) for (const z of [-1.28, 1.28]) a.push(cyM(d, 0.37, 0.25, sx * 0.98, 0.37, z, Math.PI / 2));
+    // 열린 창문이 있는 운전석 + 적재함 + 내부 좌석/왼쪽 운전대
+    const a = [
+      bxM(m, 1.88, 0.24, 4.1, 0, 0.5, 0),
+      bxM(m, 1.96, 0.18, 2.35, 0, 0.69, -0.78),
+      bxM(m, 0.12, 0.68, 2.3, -0.92, 0.94, -0.78),
+      bxM(m, 0.12, 0.68, 2.3, 0.92, 0.94, -0.78),
+      bxM(m, 1.96, 0.68, 0.12, 0, 0.94, -1.86),
+      bxM(m, 1.86, 1.02, 1.36, 0, 1.05, 1.34),
+      bxM(m, 1.62, 0.16, 1.14, 0, 1.68, 1.34),
+      bxM(m, 1.5, 0.28, 0.08, 0, 1.23, 1.92),
+      bxM(m, 0.08, 0.86, 0.08, -0.83, 1.25, 1.76), bxM(m, 0.08, 0.86, 0.08, 0.83, 1.25, 1.76),
+      bxM(m, 0.08, 0.86, 0.08, -0.83, 1.25, 0.92), bxM(m, 0.08, 0.86, 0.08, 0.83, 1.25, 0.92),
+      bxM(d, 0.34, 0.14, 0.32, -0.34, 0.82, 1.28), bxM(d, 0.3, 0.52, 0.22, -0.34, 1.14, 1.18),
+      bxM(d, 0.34, 0.14, 0.32, 0.34, 0.82, 1.28), bxM(d, 0.3, 0.52, 0.22, 0.34, 1.14, 1.18),
+      torM(d, 0.14, 0.024, -0.48, 1.26, 1.72, 0, 0.4, Math.PI / 2)
+    ];
+    for (const sx of [-1, 1]) for (const z of [-1.26, 1.24]) a.push(cyM(d, 0.37, 0.25, sx * 0.98, 0.37, z, Math.PI / 2));
     return a; } },
   boat: { name: '보트', color: '#2a9d8f', build: (m, d) => {
     const hull = bxM(m, 1.25, 0.38, 2.5, 0, 0.19, -0.2), bow = coneM(m, 0.72, 1.25, 0, 0.33, 1.55, Math.PI / 2); bow.scale.set(0.9, 0.45, 1);
