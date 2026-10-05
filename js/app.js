@@ -1357,7 +1357,7 @@ const DICT_PRESETS = [
   { id:'two-kiss', name:'키스', people:2, tags:['감정','친밀'], a:PAIR_POSES.kissA, b:PAIR_POSES.kissB, layout:{ b:[0,0,0.35], face:'each' } },
   { id:'two-shoulder', name:'어깨동무', people:2, tags:['일상','친밀'], a:PAIR_POSES.shoulderA, b:PAIR_POSES.shoulderB, layout:{ b:[0.40,0,0], yaws:[0,0] } },
   { id:'two-piggy', name:'업기', people:2, tags:['액션','친밀'], a:PAIR_POSES.piggyA, b:PAIR_POSES.piggyB, layout:{ b:[0,0.42,-0.18], yaws:[0,0] } },
-  { id:'two-carry', name:'안아 들기', people:2, tags:['액션','친밀'], a:PAIR_POSES.carryA, b:PAIR_POSES.carryB, layout:{ b:[0.0231,0.2454,0.2448], yaws:[0,0] } },
+  { id:'two-carry', name:'안아들기', people:2, tags:['액션','친밀'], a:PAIR_POSES.carryA, b:PAIR_POSES.carryB, layout:{ absolute:true, a:[0,0,0], b:[0.0231,0.1770,0.2448], yaws:[0,0] } },
   { id:'two-support', name:'부축', people:2, tags:['일상','상호작용'], a:PAIR_POSES.supportA, b:PAIR_POSES.supportB, layout:{ b:[0.38,0,0], yaws:[0,0] } },
   { id:'two-push', name:'밀기', people:2, tags:['액션','상호작용'], a:PAIR_POSES.pushA, b:PAIR_POSES.pushB, layout:{ b:[0,0,0.64], face:'each' } },
   { id:'two-pull', name:'당기기', people:2, tags:['액션','상호작용'], a:PAIR_POSES.pullA, b:PAIR_POSES.pullB, layout:{ b:[0,0,0.78], face:'each' } },
@@ -1375,11 +1375,11 @@ function footMinY(c) {
   return m;
 }
 function groundChar(c) { c.root.position.y = clamp(c.root.position.y - footMinY(c), -1.2, 3); c.root.updateMatrixWorld(true); }
-function applyPresetTo(c, p) {
+function applyPresetTo(c, p, opts = {}) {
   applyChar(c); // 키(스케일)를 먼저 동기화해야 발 높이가 정확합니다
   JN.forEach(n => c.joints[n].quaternion.identity());
   if (p && p.q) {
-    for (const [n, q] of Object.entries(p.q)) if (c.joints[n] && Array.isArray(q) && q.length === 4) c.joints[n].quaternion.fromArray(q);
+    for (const [n, q] of Object.entries(p.q)) if (c.joints[n] && Array.isArray(q) && q.length === 4) c.joints[n].quaternion.fromArray(q).normalize();
   } else {
     for (const [n, v] of Object.entries((p && p.j) || {})) if (c.joints[n]) c.joints[n].quaternion.setFromEuler(new THREE.Euler(v[0] * D2R, v[1] * D2R, v[2] * D2R, 'XYZ'));
   }
@@ -1389,7 +1389,8 @@ function applyPresetTo(c, p) {
     c.root.getWorldQuaternion(rq);
     solveTwoBone(J[ch[0]], J[ch[1]], J[ch[2]], c.root.localToWorld(V3(...t)), V3(0, 0, ch[3]).applyQuaternion(rq));
   }
-  groundChar(c); c.root.position.y += ((p && p.lift) || 0) * (c.root.scale.x); applyChar(c);
+  if (opts.ground !== false) groundChar(c);
+  c.root.position.y += ((p && p.lift) || 0) * (c.root.scale.x); applyChar(c);
 }
 
 const dictState = { people: 'all', tags: new Set(), query: '' };
@@ -1404,11 +1405,19 @@ function applyPairPresetCore(a, b, p, opts = {}) {
   const anchor = opts.anchor ? opts.anchor.clone() : a.root.position.clone();
   const baseYaw = Number.isFinite(opts.baseYaw) ? opts.baseYaw : a.yaw;
   const pairScale = 1; // 2인 프리셋은 175cm 동일 키 기준. 키 차이는 사용자가 적용 후 미세 조정합니다.
-  applyPresetTo(a, p.a); applyPresetTo(b, p.b);
-  const ay = a.root.position.y, by = b.root.position.y, la = p.layout && p.layout.a || [0,0,0], lb = p.layout && p.layout.b || [0,0,0];
+  const absoluteLayout = !!(p.layout && p.layout.absolute);
+  applyPresetTo(a, p.a, { ground: !absoluteLayout });
+  applyPresetTo(b, p.b, { ground: !absoluteLayout });
+  const la = p.layout && p.layout.a || [0,0,0], lb = p.layout && p.layout.b || [0,0,0];
   const oa = localOffset(la, baseYaw, pairScale), ob = localOffset(lb, baseYaw, pairScale);
-  a.root.position.set(anchor.x + oa.x, ay + oa.y, anchor.z + oa.z);
-  b.root.position.set(anchor.x + ob.x, by + ob.y, anchor.z + ob.z);
+  if (absoluteLayout) {
+    a.root.position.set(anchor.x + oa.x, anchor.y + oa.y, anchor.z + oa.z);
+    b.root.position.set(anchor.x + ob.x, anchor.y + ob.y, anchor.z + ob.z);
+  } else {
+    const ay = a.root.position.y, by = b.root.position.y;
+    a.root.position.set(anchor.x + oa.x, ay + oa.y, anchor.z + oa.z);
+    b.root.position.set(anchor.x + ob.x, by + ob.y, anchor.z + ob.z);
+  }
   if (p.layout && p.layout.face === 'each') {
     faceTowards(a, b.root.position.x, b.root.position.z);
     faceTowards(b, a.root.position.x, a.root.position.z);

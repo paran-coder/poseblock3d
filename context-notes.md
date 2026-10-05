@@ -1,8 +1,8 @@
-# PoseBlock 3D v1.7.0 Context Notes
+# PoseBlock 3D v1.7.5 Context Notes
 
 ## 기준 버전
 - 기준: v1.6.9
-- 목표: v1.7.0
+- 목표: v1.7.5
 
 ## 이번 작업 범위
 1. 기존 오른쪽 패널의 12개 프리셋은 `기본 프리셋`으로 그대로 유지한다.

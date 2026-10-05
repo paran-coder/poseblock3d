@@ -1,4 +1,4 @@
-# PoseBlock 3D v1.7.0 Checklist
+# PoseBlock 3D v1.7.5 Checklist
 
 - [x] 작업 전 범위 확정
 - [x] context-notes.md 작성
