@@ -93,6 +93,7 @@ aside{overflow:auto;background:var(--panel);padding:12px;display:flex;flex-direc
 .card h3{margin:0 0 10px;font-size:12px;letter-spacing:.04em;color:var(--mute);font-weight:700;text-transform:none}
 .row{display:flex;align-items:center;gap:8px;margin-top:8px}
 .row:first-child{margin-top:0}
+#charCtl{margin-top:8px}
 .row label{color:var(--mute);width:44px;flex:none}
 .row .v{width:52px;text-align:right;font-variant-numeric:tabular-nums;color:var(--ink)}
 input[type=range]{flex:1;accent-color:var(--acc);min-width:0}

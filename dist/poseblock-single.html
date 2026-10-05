@@ -124,6 +124,7 @@ aside{overflow:auto;background:var(--panel);padding:12px;display:flex;flex-direc
 .card h3{margin:0 0 10px;font-size:12px;letter-spacing:.04em;color:var(--mute);font-weight:700;text-transform:none}
 .row{display:flex;align-items:center;gap:8px;margin-top:8px}
 .row:first-child{margin-top:0}
+#charCtl{margin-top:8px}
 .row label{color:var(--mute);width:44px;flex:none}
 .row .v{width:52px;text-align:right;font-variant-numeric:tabular-nums;color:var(--ink)}
 input[type=range]{flex:1;accent-color:var(--acc);min-width:0}
@@ -189,7 +190,7 @@ kbd{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;background:#eef0f3;bor
 <body>
 
 <header>
-  <a class="brand" href="https://poseblock3d.vercel.app/" aria-label="PoseBlock 3D 홈페이지" title="PoseBlock 3D 홈페이지로 이동"><span class="logo">◈</span><span class="t">PoseBlock <b>3D</b></span></a><span class="app-ver" aria-label="현재 버전">v1.4.0</span>
+  <a class="brand" href="https://poseblock3d.vercel.app/" aria-label="PoseBlock 3D 홈페이지" title="PoseBlock 3D 홈페이지로 이동"><span class="logo">◈</span><span class="t">PoseBlock <b>3D</b></span></a><span class="app-ver" aria-label="현재 버전">v1.5.0</span>
   <div class="grp">
     <button class="btn" id="undo" title="되돌리기 (Ctrl+Z)">↶</button>
     <button class="btn" id="redo" title="다시 실행 (Ctrl+Shift+Z)">↷</button>
@@ -317,7 +318,7 @@ kbd{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;background:#eef0f3;bor
         <span>캐릭터 이동</span><span>골반 또는 바닥 원 (<kbd>Shift</kbd> 위아래)</span>
         <span>바닥 화살표</span><span>끌면 캐릭터 전체(발 방향)가 회전</span>
         <span>에셋</span><span>끌면 이동 (<kbd>Shift</kbd> 위아래), <kbd>Delete</kbd> 삭제</span>
-        <span>빈 곳 드래그</span><span>카메라 회전 (<kbd>Alt</kbd> 반대, <kbd>R</kbd> 전환), 우클릭 이동</span>
+        <span>빈 곳 드래그</span><span>카메라 회전 (<kbd>Alt</kbd> 반대, <kbd>R</kbd> 전환), <kbd>Space</kbd>+좌클릭 드래그 이동</span>
         <span>주황 카메라</span><span>끌면 위치, 앞의 작은 구는 방향 (<kbd>Shift</kbd> 위아래)</span>
         <span>카메라 뷰 키</span><span><kbd>WASD</kbd> 이동 <kbd>QE</kbd> 아래위 방향키 회전 <kbd>ZX</kbd> 기울기</span>
         <span><kbd>Tab</kbd> <kbd>C</kbd> <kbd>P</kbd></span><span>뷰 전환 / 클립보드 캡처 / PNG 저장</span>
@@ -1056,8 +1057,8 @@ function updateHud() {
   const hud = $('#hud'); hud.innerHTML = '';
   const m = modes[view.mode] === 'look' ? '제자리 회전' : '대상 중심 회전';
   const tips = view.mode === 'work'
-    ? ['작업 뷰', '관절·링 드래그로 포즈 편집', `빈 곳 드래그 = ${m}`, '우클릭 이동 · 휠 확대', '주황 카메라 이동 · 앞의 작은 구로 방향 조절']
-    : ['카메라 뷰 (출력 구도)', `드래그 = ${m} (Alt 반대)`, '우클릭 이동 · 휠 앞뒤 · 방향키 회전'];
+    ? ['작업 뷰', '관절·링 드래그로 포즈 편집', `빈 곳 드래그 = ${m}`, 'Space + 좌클릭 드래그 이동 · 휠 확대', '주황 카메라 이동 · 앞의 작은 구로 방향 조절']
+    : ['카메라 뷰 (출력 구도)', `드래그 = ${m} (Alt 반대)`, 'Space + 좌클릭 드래그 이동 · 휠 앞뒤 · 방향키 회전'];
   tips.forEach(t => { const sp = el('span'); sp.textContent = t; hud.append(sp); });
   $('#modeBar').querySelectorAll('button').forEach(bn => bn.classList.toggle('on', bn.dataset.t === modes[view.mode]));
 }
@@ -1071,8 +1072,9 @@ function setView(v) {
 // 포인터 인터랙션
 // ------------------------------------------------------------
 const raycaster = new THREE.Raycaster();
-let drag = null, lastX = 0, lastY = 0, hoverT = 0;
+let drag = null, lastX = 0, lastY = 0, hoverT = 0, spacePan = false;
 const posOf = e => { const r = stage.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+const blocksSpacePan = t => !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(t.tagName));
 function setRay(p) {
   syncCams();
   const r = viewRect();
@@ -1113,6 +1115,7 @@ stage.addEventListener('pointerdown', e => {
   if (e.target.closest('.lab,#pip,#modeBar')) return;
   stage.setPointerCapture(e.pointerId);
   const p = posOf(e); lastX = p.x; lastY = p.y;
+  if (e.button === 0 && spacePan) { drag = { type: 'pan', moved: false, dist: 0, viaSpace: true }; stage.style.cursor = 'grabbing'; return; }
   if (e.button === 1 || e.button === 2) { drag = { type: 'pan', moved: false, dist: 0 }; return; }
   if (e.button !== 0) return;
   setRay(p);
@@ -1174,7 +1177,7 @@ stage.addEventListener('pointerdown', e => {
 });
 stage.addEventListener('pointermove', e => {
   const p = posOf(e), dx = p.x - lastX, dy = p.y - lastY; lastX = p.x; lastY = p.y;
-  if (!drag) { hoverSoon(p); return; }
+  if (!drag) { if (spacePan) { stage.style.cursor = 'grab'; return; } hoverSoon(p); return; }
   if (drag.type === 'orbit' || drag.type === 'pan') {
     drag.dist += Math.abs(dx) + Math.abs(dy); if (drag.dist > 3) drag.moved = true;
     const rig = activeRig();
@@ -1182,7 +1185,7 @@ stage.addEventListener('pointermove', e => {
       const inPlace = (modes[view.mode] === 'look') !== e.altKey, kk = 0.0042 * (activeCam().fov / 40);
       if (inPlace) rigLookBy(rig, -dx * kk, dy * kk);
       else { rigOrbitAround(rig, pivotPoint(), -dx * 0.0065, dy * 0.0065); showPivot(); }
-    } else rig.pan(dx, dy, activeCam(), viewRect().h);
+    } else { rig.pan(dx, dy, activeCam(), viewRect().h); if (drag.viaSpace) stage.style.cursor = 'grabbing'; }
     if (view.mode === 'cam') autosaveSoon();
     mark(); return;
   }
@@ -1240,11 +1243,15 @@ stage.addEventListener('pointermove', e => {
 });
 function endDrag() {
   if (!drag) return;
+  const viaSpace = !!drag.viaSpace;
   if (drag.type === 'ring') ringVis.forEach(v => { v.material.opacity = 0.92; });
   if (drag.moved && !['orbit', 'pan'].includes(drag.type)) commit();
   if (drag.type === 'propMove') syncProps();
   if (drag.type === 'orbit' && !drag.moved && (sel.j || sel.p)) { sel.j = null; sel.p = null; syncPanel(); }
-  drag = null; mark();
+  drag = null;
+  if (viaSpace) stage.style.cursor = spacePan ? 'grab' : '';
+  else if (spacePan) stage.style.cursor = 'grab';
+  mark();
 }
 stage.addEventListener('pointerup', endDrag);
 stage.addEventListener('pointercancel', endDrag);
@@ -1256,6 +1263,7 @@ function hoverSoon(p) {
   if (hoverT) return;
   hoverT = setTimeout(() => {
     hoverT = 0; if (drag) return;
+    if (spacePan) { stage.style.cursor = 'grab'; return; }
     setRay(p); const h = pick();
     stage.style.cursor = !h ? 'grab' : (h.kind === 'base' || h.kind === 'cam' || h.kind === 'prop') ? 'move' : h.kind === 'aim' ? 'crosshair' : h.kind === 'arrow' ? 'grab' : 'pointer';
   }, 40);
@@ -1840,6 +1848,9 @@ function moveCamKey(k, step) {
 // 단축키
 window.addEventListener('keydown', e => {
   if (e.key === 'Escape' && !$('#dlg').hidden) { closeDialog(); return; } // 입력칸에 포커스가 있어도 공유 창은 Esc로 닫힘
+  if (e.code === 'Space' && !blocksSpacePan(e.target) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    e.preventDefault(); spacePan = true; if (!drag) stage.style.cursor = 'grab'; return;
+  }
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) && e.target.type !== 'range' && e.target.type !== 'checkbox') return;
   const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
   if (mod && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
@@ -1858,6 +1869,16 @@ window.addEventListener('keydown', e => {
   else if (!mod && k === 'p') capture('png');
   else if ((k === 'delete' || k === 'backspace') && !mod && selProp() && e.target.tagName !== 'INPUT') { e.preventDefault(); deleteProp(); }
   else if (k === 'escape') { if (!$('#dlg').hidden) { closeDialog(); return; } sel.j = null; sel.p = null; syncPanel(); mark(); }
+});
+
+window.addEventListener('keyup', e => {
+  if (e.code !== 'Space' || !spacePan) return;
+  spacePan = false;
+  if (!drag) stage.style.cursor = '';
+});
+window.addEventListener('blur', () => {
+  spacePan = false;
+  if (!drag) stage.style.cursor = '';
 });
 
 // ------------------------------------------------------------

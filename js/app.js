@@ -690,8 +690,8 @@ function updateHud() {
   const hud = $('#hud'); hud.innerHTML = '';
   const m = modes[view.mode] === 'look' ? '제자리 회전' : '대상 중심 회전';
   const tips = view.mode === 'work'
-    ? ['작업 뷰', '관절·링 드래그로 포즈 편집', `빈 곳 드래그 = ${m}`, '우클릭 이동 · 휠 확대', '주황 카메라 이동 · 앞의 작은 구로 방향 조절']
-    : ['카메라 뷰 (출력 구도)', `드래그 = ${m} (Alt 반대)`, '우클릭 이동 · 휠 앞뒤 · 방향키 회전'];
+    ? ['작업 뷰', '관절·링 드래그로 포즈 편집', `빈 곳 드래그 = ${m}`, 'Space + 좌클릭 드래그 이동 · 휠 확대', '주황 카메라 이동 · 앞의 작은 구로 방향 조절']
+    : ['카메라 뷰 (출력 구도)', `드래그 = ${m} (Alt 반대)`, 'Space + 좌클릭 드래그 이동 · 휠 앞뒤 · 방향키 회전'];
   tips.forEach(t => { const sp = el('span'); sp.textContent = t; hud.append(sp); });
   $('#modeBar').querySelectorAll('button').forEach(bn => bn.classList.toggle('on', bn.dataset.t === modes[view.mode]));
 }
@@ -705,8 +705,9 @@ function setView(v) {
 // 포인터 인터랙션
 // ------------------------------------------------------------
 const raycaster = new THREE.Raycaster();
-let drag = null, lastX = 0, lastY = 0, hoverT = 0;
+let drag = null, lastX = 0, lastY = 0, hoverT = 0, spacePan = false;
 const posOf = e => { const r = stage.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+const blocksSpacePan = t => !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(t.tagName));
 function setRay(p) {
   syncCams();
   const r = viewRect();
@@ -747,6 +748,7 @@ stage.addEventListener('pointerdown', e => {
   if (e.target.closest('.lab,#pip,#modeBar')) return;
   stage.setPointerCapture(e.pointerId);
   const p = posOf(e); lastX = p.x; lastY = p.y;
+  if (e.button === 0 && spacePan) { drag = { type: 'pan', moved: false, dist: 0, viaSpace: true }; stage.style.cursor = 'grabbing'; return; }
   if (e.button === 1 || e.button === 2) { drag = { type: 'pan', moved: false, dist: 0 }; return; }
   if (e.button !== 0) return;
   setRay(p);
@@ -808,7 +810,7 @@ stage.addEventListener('pointerdown', e => {
 });
 stage.addEventListener('pointermove', e => {
   const p = posOf(e), dx = p.x - lastX, dy = p.y - lastY; lastX = p.x; lastY = p.y;
-  if (!drag) { hoverSoon(p); return; }
+  if (!drag) { if (spacePan) { stage.style.cursor = 'grab'; return; } hoverSoon(p); return; }
   if (drag.type === 'orbit' || drag.type === 'pan') {
     drag.dist += Math.abs(dx) + Math.abs(dy); if (drag.dist > 3) drag.moved = true;
     const rig = activeRig();
@@ -816,7 +818,7 @@ stage.addEventListener('pointermove', e => {
       const inPlace = (modes[view.mode] === 'look') !== e.altKey, kk = 0.0042 * (activeCam().fov / 40);
       if (inPlace) rigLookBy(rig, -dx * kk, dy * kk);
       else { rigOrbitAround(rig, pivotPoint(), -dx * 0.0065, dy * 0.0065); showPivot(); }
-    } else rig.pan(dx, dy, activeCam(), viewRect().h);
+    } else { rig.pan(dx, dy, activeCam(), viewRect().h); if (drag.viaSpace) stage.style.cursor = 'grabbing'; }
     if (view.mode === 'cam') autosaveSoon();
     mark(); return;
   }
@@ -874,11 +876,15 @@ stage.addEventListener('pointermove', e => {
 });
 function endDrag() {
   if (!drag) return;
+  const viaSpace = !!drag.viaSpace;
   if (drag.type === 'ring') ringVis.forEach(v => { v.material.opacity = 0.92; });
   if (drag.moved && !['orbit', 'pan'].includes(drag.type)) commit();
   if (drag.type === 'propMove') syncProps();
   if (drag.type === 'orbit' && !drag.moved && (sel.j || sel.p)) { sel.j = null; sel.p = null; syncPanel(); }
-  drag = null; mark();
+  drag = null;
+  if (viaSpace) stage.style.cursor = spacePan ? 'grab' : '';
+  else if (spacePan) stage.style.cursor = 'grab';
+  mark();
 }
 stage.addEventListener('pointerup', endDrag);
 stage.addEventListener('pointercancel', endDrag);
@@ -890,6 +896,7 @@ function hoverSoon(p) {
   if (hoverT) return;
   hoverT = setTimeout(() => {
     hoverT = 0; if (drag) return;
+    if (spacePan) { stage.style.cursor = 'grab'; return; }
     setRay(p); const h = pick();
     stage.style.cursor = !h ? 'grab' : (h.kind === 'base' || h.kind === 'cam' || h.kind === 'prop') ? 'move' : h.kind === 'aim' ? 'crosshair' : h.kind === 'arrow' ? 'grab' : 'pointer';
   }, 40);
@@ -1474,6 +1481,9 @@ function moveCamKey(k, step) {
 // 단축키
 window.addEventListener('keydown', e => {
   if (e.key === 'Escape' && !$('#dlg').hidden) { closeDialog(); return; } // 입력칸에 포커스가 있어도 공유 창은 Esc로 닫힘
+  if (e.code === 'Space' && !blocksSpacePan(e.target) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    e.preventDefault(); spacePan = true; if (!drag) stage.style.cursor = 'grab'; return;
+  }
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) && e.target.type !== 'range' && e.target.type !== 'checkbox') return;
   const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
   if (mod && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
@@ -1492,6 +1502,16 @@ window.addEventListener('keydown', e => {
   else if (!mod && k === 'p') capture('png');
   else if ((k === 'delete' || k === 'backspace') && !mod && selProp() && e.target.tagName !== 'INPUT') { e.preventDefault(); deleteProp(); }
   else if (k === 'escape') { if (!$('#dlg').hidden) { closeDialog(); return; } sel.j = null; sel.p = null; syncPanel(); mark(); }
+});
+
+window.addEventListener('keyup', e => {
+  if (e.code !== 'Space' || !spacePan) return;
+  spacePan = false;
+  if (!drag) stage.style.cursor = '';
+});
+window.addEventListener('blur', () => {
+  spacePan = false;
+  if (!drag) stage.style.cursor = '';
 });
 
 // ------------------------------------------------------------
