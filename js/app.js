@@ -749,11 +749,11 @@ stage.addEventListener('pointerdown', e => {
   stage.setPointerCapture(e.pointerId);
   const p = posOf(e); lastX = p.x; lastY = p.y;
   if (e.button === 0 && spacePan) { drag = { type: 'pan', moved: false, dist: 0, viaSpace: true }; stage.style.cursor = 'grabbing'; return; }
-  if (e.button === 1 || e.button === 2) { drag = { type: 'pan', moved: false, dist: 0 }; return; }
+  if (e.button === 1 || e.button === 2) { drag = { type: 'pan', moved: false, dist: 0 }; stage.style.cursor = 'grabbing'; return; }
   if (e.button !== 0) return;
   setRay(p);
   const hit = pick();
-  if (!hit) { drag = { type: e.shiftKey ? 'pan' : 'orbit', moved: false, dist: 0 }; return; }
+  if (!hit) { drag = { type: e.shiftKey ? 'pan' : 'orbit', moved: false, dist: 0 }; stage.style.cursor = 'grabbing'; return; }
 
   if (hit.kind === 'ring') {
     const c = selChar(), jo = c.joints[sel.j], center = V3(); jo.getWorldPosition(center);
@@ -884,6 +884,7 @@ function endDrag() {
   drag = null;
   if (viaSpace) stage.style.cursor = spacePan ? 'grab' : '';
   else if (spacePan) stage.style.cursor = 'grab';
+  else stage.style.cursor = '';
   mark();
 }
 stage.addEventListener('pointerup', endDrag);
@@ -898,7 +899,7 @@ function hoverSoon(p) {
     hoverT = 0; if (drag) return;
     if (spacePan) { stage.style.cursor = 'grab'; return; }
     setRay(p); const h = pick();
-    stage.style.cursor = !h ? 'grab' : (h.kind === 'base' || h.kind === 'cam' || h.kind === 'prop') ? 'move' : h.kind === 'aim' ? 'crosshair' : h.kind === 'arrow' ? 'grab' : 'pointer';
+    stage.style.cursor = !h ? '' : (h.kind === 'base' || h.kind === 'cam' || h.kind === 'prop') ? 'move' : h.kind === 'aim' ? 'crosshair' : h.kind === 'arrow' ? 'grab' : 'pointer';
   }, 40);
 }
 pipEl.addEventListener('click', () => setView('cam'));

@@ -7,8 +7,8 @@ import { fileURLToPath } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = p => readFileSync(join(root, p), 'utf8');
 
-const cssTag = '<link rel="stylesheet" href="css/style.css?v=1.5.0">';
-const jsTag = '<script src="js/app.js?v=1.5.0"></script>';
+const cssTag = '<link rel="stylesheet" href="css/style.css?v=1.5.1">';
+const jsTag = '<script src="js/app.js?v=1.5.1"></script>';
 let html = read('index.html');
 for (const tag of [cssTag, jsTag]) {
   if (!html.includes(tag)) { console.error(`index.html 에서 다음 태그를 찾지 못했습니다. ${tag}`); process.exit(1); }
