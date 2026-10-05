@@ -190,7 +190,7 @@ kbd{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;background:#eef0f3;bor
 <body>
 
 <header>
-  <a class="brand" href="https://poseblock3d.vercel.app/" aria-label="PoseBlock 3D 홈페이지" title="PoseBlock 3D 홈페이지로 이동"><span class="logo">◈</span><span class="t">PoseBlock <b>3D</b></span></a><span class="app-ver" aria-label="현재 버전">v1.6.3</span>
+  <a class="brand" href="https://poseblock3d.vercel.app/" aria-label="PoseBlock 3D 홈페이지" title="PoseBlock 3D 홈페이지로 이동"><span class="logo">◈</span><span class="t">PoseBlock <b>3D</b></span></a><span class="app-ver" aria-label="현재 버전">v1.6.4</span>
   <div class="grp">
     <button class="btn" id="undo" title="되돌리기 (Ctrl+Z)">↶</button>
     <button class="btn" id="redo" title="다시 실행 (Ctrl+Shift+Z)">↷</button>
@@ -631,7 +631,10 @@ function applyQuats(c, q) {
 function applyChar(c) {
   c.root.rotation.y = c.yaw;
   c.root.scale.setScalar(c.height / 100 / HEIGHT_BASE);
-  c.aids.position.set(c.root.position.x, 0, c.root.position.z);
+  // 이동용 바닥 원/방향 핸들은 캐릭터의 실제 최저 발 높이를 따라간다.
+  // 지면에 서 있으면 y=0에 머물고, Shift 수직 이동 시에는 캐릭터와 함께 올라간다.
+  const baseY = footMinY(c);
+  c.aids.position.set(c.root.position.x, Number.isFinite(baseY) ? baseY : 0, c.root.position.z);
   c.aids.rotation.y = c.yaw;
   const on = c.id === sel.c;
   c.ring.material.opacity = on ? 1 : 0.45;

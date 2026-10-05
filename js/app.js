@@ -264,7 +264,10 @@ function applyQuats(c, q) {
 function applyChar(c) {
   c.root.rotation.y = c.yaw;
   c.root.scale.setScalar(c.height / 100 / HEIGHT_BASE);
-  c.aids.position.set(c.root.position.x, 0, c.root.position.z);
+  // 이동용 바닥 원/방향 핸들은 캐릭터의 실제 최저 발 높이를 따라간다.
+  // 지면에 서 있으면 y=0에 머물고, Shift 수직 이동 시에는 캐릭터와 함께 올라간다.
+  const baseY = footMinY(c);
+  c.aids.position.set(c.root.position.x, Number.isFinite(baseY) ? baseY : 0, c.root.position.z);
   c.aids.rotation.y = c.yaw;
   const on = c.id === sel.c;
   c.ring.material.opacity = on ? 1 : 0.45;
