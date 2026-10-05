@@ -278,7 +278,7 @@ function updateCharOutline(c) {
   c.root.updateMatrixWorld(true);
   c.outlineMeshes.forEach(m => { charOutlineTmp.setFromObject(m); c.outlineBox.union(charOutlineTmp); });
   if (!c.outlineBox.isEmpty()) c.outlineBox.expandByScalar(Math.max(0.012, 0.018 * c.root.scale.x));
-  c.outline.visible = c.id === sel.boxC && !sel.p;
+  c.outline.visible = c.id === sel.boxC && !sel.p && !sel.j;
 }
 function applyDisplay(c) {
   c.flesh.forEach(m => { m.visible = disp.body; });
@@ -555,7 +555,7 @@ function updateGizmo() {
   gizmo.visible = true; gizmo.updateMatrixWorld(true);
 }
 function selectChar(c) { sel.c = c ? c.id : null; sel.j = null; sel.p = null; sel.boxC = c ? c.id : null; chars.forEach(applyChar); syncPanel(); mark(); }
-function selectJoint(c, name) { sel.c = c.id; sel.j = name; sel.p = null; sel.boxC = c.id; chars.forEach(applyChar); syncPanel(); mark(); }
+function selectJoint(c, name) { sel.c = c.id; sel.j = name; sel.p = null; sel.boxC = null; chars.forEach(applyChar); syncPanel(); mark(); }
 
 // ------------------------------------------------------------
 // 캐릭터 방향 (발 방향 · 상체 방향 · 마주보기)
@@ -769,6 +769,15 @@ function startMove(c, plane, shift) {
   const g = rayPlane(plane); if (!g) return null;
   return { type: 'move', c, plane, grab: g, start: c.root.position.clone(), shift, moved: false };
 }
+function worldPerPixelAt(pos) {
+  syncCams();
+  const cam = activeCam(), h = Math.max(1, viewRect().h), cp = cam.getWorldPosition(V3()), f = cam.getWorldDirection(V3());
+  const depth = Math.max(0.25, pos.clone().sub(cp).dot(f));
+  return (2 * depth * Math.tan(THREE.MathUtils.degToRad(cam.fov * 0.5))) / h;
+}
+function startCharVertical(c, pointerY) {
+  return { type: 'charY', c, startY: c.root.position.y, pointerY, scale: worldPerPixelAt(c.root.position), moved: false };
+}
 stage.addEventListener('contextmenu', e => e.preventDefault());
 stage.addEventListener('pointerdown', e => {
   if (e.target.closest('.lab,#pip,#modeBar')) return;
@@ -781,11 +790,11 @@ stage.addEventListener('pointerdown', e => {
   const hit = pick();
   if (!hit) { drag = { type: 'orbit', moved: false, dist: 0 }; stage.style.cursor = 'grabbing'; return; }
 
-  // 캐릭터 위에서 Shift+드래그는 관절 조작보다 우선해 캐릭터 전체를 수직으로만 이동한다.
+  // 캐릭터 위에서 Shift+드래그는 관절 조작보다 우선하며, X/Z를 건드리지 않고 Y축만 이동한다.
   if (e.shiftKey && (hit.kind === 'char' || hit.kind === 'joint' || hit.kind === 'base')) {
     const c = hit.c; selectChar(c);
-    const n = activeCam().getWorldDirection(V3()); n.y = 0; if (n.lengthSq() < 1e-6) n.set(0, 0, 1); n.normalize();
-    drag = startMove(c, new THREE.Plane().setFromNormalAndCoplanarPoint(n, c.root.position), true);
+    drag = startCharVertical(c, p.y);
+    stage.style.cursor = 'ns-resize';
     return;
   }
 
@@ -825,7 +834,9 @@ stage.addEventListener('pointerdown', e => {
   }
   if (hit.kind === 'char') {
     const c = hit.c; selectChar(c);
-    drag = startMove(c, new THREE.Plane(V3(0, 1, 0), 0), false);
+    // 캐릭터 몸통 일반 드래그는 기존 카메라 회전 규칙을 따른다. 평면 이동은 바닥 원으로 유지한다.
+    drag = { type: 'orbit', moved: false, dist: 0, keepSelection: true };
+    stage.style.cursor = 'grabbing';
     return;
   }
   const { c, name } = hit, def = DEF[name], jo = c.joints[name];
@@ -901,6 +912,9 @@ stage.addEventListener('pointermove', e => {
     const g = rayPlane(drag.plane); if (!g) return;
     const d = g.sub(drag.grab); if (drag.shift) { d.x = 0; d.z = 0; } else d.y = 0;
     outRig.target.copy(drag.start).add(d); drag.moved = true; autosaveSoon();
+  } else if (drag.type === 'charY') {
+    const c = drag.c, ny = clamp(drag.startY - (p.y - drag.pointerY) * drag.scale, -1.2, 3);
+    if (Math.abs(ny - c.root.position.y) > 1e-7) { c.root.position.y = ny; applyChar(c); drag.moved = true; }
   } else if (drag.type === 'move') {
     const g = rayPlane(drag.plane); if (!g) return;
     const d = g.sub(drag.grab), c = drag.c;
@@ -916,7 +930,7 @@ function endDrag() {
   if (drag.type === 'ring') ringVis.forEach(v => { v.material.opacity = 0.92; });
   if (drag.moved && !['orbit', 'pan'].includes(drag.type)) commit();
   if (drag.type === 'propMove') syncProps();
-  if (drag.type === 'orbit' && !drag.moved && (sel.j || sel.p || sel.boxC)) { sel.j = null; sel.p = null; sel.boxC = null; syncPanel(); }
+  if (drag.type === 'orbit' && !drag.moved && !drag.keepSelection && (sel.j || sel.p || sel.boxC)) { sel.j = null; sel.p = null; sel.boxC = null; syncPanel(); }
   drag = null;
   if (viaSpace) stage.style.cursor = spacePan ? 'grab' : '';
   else if (spacePan) stage.style.cursor = 'grab';
@@ -935,7 +949,7 @@ function hoverSoon(p) {
     hoverT = 0; if (drag) return;
     if (spacePan) { stage.style.cursor = 'grab'; return; }
     setRay(p); const h = pick();
-    stage.style.cursor = !h ? '' : (h.kind === 'base' || h.kind === 'char' || h.kind === 'cam' || h.kind === 'prop') ? 'move' : h.kind === 'aim' ? 'crosshair' : h.kind === 'arrow' ? 'grab' : 'pointer';
+    stage.style.cursor = !h ? '' : (h.kind === 'base' || h.kind === 'cam' || h.kind === 'prop') ? 'move' : h.kind === 'char' ? 'pointer' : h.kind === 'aim' ? 'crosshair' : h.kind === 'arrow' ? 'grab' : 'pointer';
   }, 40);
 }
 pipEl.addEventListener('click', () => setView('cam'));
