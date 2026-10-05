@@ -160,7 +160,7 @@ const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 10, 1, false);
 const coneGeo = new THREE.ConeGeometry(1, 1, 10);
 const hitMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
 let chars = [];
-const sel = { c: null, j: null, p: null };
+const sel = { c: null, j: null, p: null, boxC: null };
 let props = [];
 const MAX_PROPS = 30;
 const view = { mode: 'work' };
@@ -278,7 +278,7 @@ function updateCharOutline(c) {
   c.root.updateMatrixWorld(true);
   c.outlineMeshes.forEach(m => { charOutlineTmp.setFromObject(m); c.outlineBox.union(charOutlineTmp); });
   if (!c.outlineBox.isEmpty()) c.outlineBox.expandByScalar(Math.max(0.012, 0.018 * c.root.scale.x));
-  c.outline.visible = c.id === sel.c && !sel.p;
+  c.outline.visible = c.id === sel.boxC && !sel.p;
 }
 function applyDisplay(c) {
   c.flesh.forEach(m => { m.visible = disp.body; });
@@ -308,6 +308,7 @@ function setChars(list) {
   chars.forEach(disposeChar);
   chars = list.map(createCharacter);
   if (!chars.find(c => c.id === sel.c)) { sel.c = chars[0] ? chars[0].id : null; sel.j = null; }
+  if (sel.boxC && !chars.find(c => c.id === sel.boxC)) sel.boxC = null;
   if (sel.j && !selChar()) sel.j = null;
   chars.forEach(applyChar);
   syncPanel(); mark();
@@ -484,7 +485,7 @@ function addProp(type) {
   const dx = [1.2, -1.2, 2.4, -2.4, 3.6, -3.6].find(d => !props.some(q => Math.hypot(q.root.position.x - (bx + d), q.root.position.z - bz) < 0.9)) ?? 1.2;
   const p = createProp({ type, pos: [bx + dx, 0, bz] }); props.push(p); selectProp(p); commit();
 }
-function selectProp(p) { sel.p = p ? p.id : null; sel.j = null; if (p) openLeftTab('props'); syncPanel(); mark(); }
+function selectProp(p) { sel.p = p ? p.id : null; sel.j = null; if (p) sel.boxC = null; if (p) openLeftTab('props'); syncPanel(); mark(); }
 function openLeftTab(t) { const b = document.querySelector(`#leftTabs button[data-t="${t}"]`); if (b && !b.classList.contains('on')) b.click(); }
 
 // ------------------------------------------------------------
@@ -553,8 +554,8 @@ function updateGizmo() {
   gizmo.scale.setScalar(Math.max(dist * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) * 0.17, 0.05));
   gizmo.visible = true; gizmo.updateMatrixWorld(true);
 }
-function selectChar(c) { sel.c = c ? c.id : null; sel.j = null; sel.p = null; chars.forEach(applyChar); syncPanel(); mark(); }
-function selectJoint(c, name) { sel.c = c.id; sel.j = name; sel.p = null; chars.forEach(applyChar); syncPanel(); mark(); }
+function selectChar(c) { sel.c = c ? c.id : null; sel.j = null; sel.p = null; sel.boxC = c ? c.id : null; chars.forEach(applyChar); syncPanel(); mark(); }
+function selectJoint(c, name) { sel.c = c.id; sel.j = name; sel.p = null; sel.boxC = c.id; chars.forEach(applyChar); syncPanel(); mark(); }
 
 // ------------------------------------------------------------
 // 캐릭터 방향 (발 방향 · 상체 방향 · 마주보기)
@@ -915,7 +916,7 @@ function endDrag() {
   if (drag.type === 'ring') ringVis.forEach(v => { v.material.opacity = 0.92; });
   if (drag.moved && !['orbit', 'pan'].includes(drag.type)) commit();
   if (drag.type === 'propMove') syncProps();
-  if (drag.type === 'orbit' && !drag.moved && (sel.j || sel.p)) { sel.j = null; sel.p = null; syncPanel(); }
+  if (drag.type === 'orbit' && !drag.moved && (sel.j || sel.p || sel.boxC)) { sel.j = null; sel.p = null; sel.boxC = null; syncPanel(); }
   drag = null;
   if (viaSpace) stage.style.cursor = spacePan ? 'grab' : '';
   else if (spacePan) stage.style.cursor = 'grab';
@@ -1537,7 +1538,7 @@ window.addEventListener('keydown', e => {
   else if (!mod && k === 'c') capture('copy');
   else if (!mod && k === 'p') capture('png');
   else if ((k === 'delete' || k === 'backspace') && !mod && selProp() && e.target.tagName !== 'INPUT') { e.preventDefault(); deleteProp(); }
-  else if (k === 'escape') { if (!$('#dlg').hidden) { closeDialog(); return; } sel.j = null; sel.p = null; syncPanel(); mark(); }
+  else if (k === 'escape') { if (!$('#dlg').hidden) { closeDialog(); return; } sel.j = null; sel.p = null; sel.boxC = null; syncPanel(); mark(); }
 });
 
 window.addEventListener('keyup', e => {
