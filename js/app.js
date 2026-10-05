@@ -201,6 +201,7 @@ function createCharacter(data) {
       if (d.r > 0) {
         const fl = new THREE.Mesh(cylGeo, fleshMat);
         fl.position.copy(bone.position); fl.quaternion.copy(q); fl.scale.set(d.r, len, d.r);
+        fl.userData = { char: c, body: true };
         c.joints[d.parent].add(fl); c.flesh.push(fl);
       }
     }
@@ -733,10 +734,16 @@ function pick() {
   const ar = raycaster.intersectObjects(chars.map(c => c.arrowHit), false)[0];
   if (ar) return { kind: 'arrow', c: ar.object.userData.char };
   const d = raycaster.intersectObjects(chars.map(c => c.disc), false)[0];
+  const body = []; chars.forEach(c => body.push(...c.flesh));
+  const bh = raycaster.intersectObjects(body, false)[0];
   const pm = []; props.forEach(p => pm.push(...p.meshes));
   const pr = raycaster.intersectObjects(pm, false)[0];
-  if (d && (!pr || d.distance < pr.distance)) return { kind: 'base', c: d.object.userData.char };
-  if (pr) return { kind: 'prop', p: pr.object.userData.prop };
+  const near = [
+    d && { d: d.distance, kind: 'base', c: d.object.userData.char },
+    bh && { d: bh.distance, kind: 'char', c: bh.object.userData.char },
+    pr && { d: pr.distance, kind: 'prop', p: pr.object.userData.prop },
+  ].filter(Boolean).sort((a, b) => a.d - b.d)[0];
+  if (near) return near;
   return null;
 }
 function startMove(c, plane, shift) {
@@ -785,7 +792,7 @@ stage.addEventListener('pointerdown', e => {
     if (g) drag = { type: 'turn', c, plane: pl, off: wrapRad(feetYaw(c) - Math.atan2(g.x - c.root.position.x, g.z - c.root.position.z)), moved: false };
     return;
   }
-  if (hit.kind === 'base') {
+  if (hit.kind === 'base' || hit.kind === 'char') {
     selectChar(hit.c);
     drag = startMove(hit.c, new THREE.Plane(V3(0, 1, 0), 0), false); return;
   }
@@ -899,7 +906,7 @@ function hoverSoon(p) {
     hoverT = 0; if (drag) return;
     if (spacePan) { stage.style.cursor = 'grab'; return; }
     setRay(p); const h = pick();
-    stage.style.cursor = !h ? '' : (h.kind === 'base' || h.kind === 'cam' || h.kind === 'prop') ? 'move' : h.kind === 'aim' ? 'crosshair' : h.kind === 'arrow' ? 'grab' : 'pointer';
+    stage.style.cursor = !h ? '' : (h.kind === 'base' || h.kind === 'char' || h.kind === 'cam' || h.kind === 'prop') ? 'move' : h.kind === 'aim' ? 'crosshair' : h.kind === 'arrow' ? 'grab' : 'pointer';
   }, 40);
 }
 pipEl.addEventListener('click', () => setView('cam'));
