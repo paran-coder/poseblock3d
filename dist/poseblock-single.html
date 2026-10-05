@@ -190,7 +190,7 @@ kbd{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;background:#eef0f3;bor
 <body>
 
 <header>
-  <a class="brand" href="https://poseblock3d.vercel.app/" aria-label="PoseBlock 3D 홈페이지" title="PoseBlock 3D 홈페이지로 이동"><span class="logo">◈</span><span class="t">PoseBlock <b>3D</b></span></a><span class="app-ver" aria-label="현재 버전">v1.5.3</span>
+  <a class="brand" href="https://poseblock3d.vercel.app/" aria-label="PoseBlock 3D 홈페이지" title="PoseBlock 3D 홈페이지로 이동"><span class="logo">◈</span><span class="t">PoseBlock <b>3D</b></span></a><span class="app-ver" aria-label="현재 버전">v1.6.0</span>
   <div class="grp">
     <button class="btn" id="undo" title="되돌리기 (Ctrl+Z)">↶</button>
     <button class="btn" id="redo" title="다시 실행 (Ctrl+Shift+Z)">↷</button>
@@ -315,7 +315,7 @@ kbd{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;background:#eef0f3;bor
       <div class="keys">
         <span>관절 드래그</span><span>손목·발목은 IK, 나머지는 끌어서 휘두름</span>
         <span>색 링</span><span>관절을 X(빨강) Y(초록) Z(파랑) 축으로 회전</span>
-        <span>캐릭터 이동</span><span>골반 또는 바닥 원 (<kbd>Shift</kbd> 위아래)</span>
+        <span>캐릭터 이동</span><span>몸통·팔다리·골반·바닥 원 (<kbd>Shift</kbd>+드래그 위아래)</span>
         <span>바닥 화살표</span><span>끌면 캐릭터 전체(발 방향)가 회전</span>
         <span>에셋</span><span>끌면 이동 (<kbd>Shift</kbd> 위아래), <kbd>Delete</kbd> 삭제</span>
         <span>빈 곳 드래그</span><span>카메라 회전 (<kbd>Alt</kbd> 반대, <kbd>R</kbd> 전환), <kbd>Space</kbd>+좌클릭 드래그 이동</span>
@@ -539,6 +539,7 @@ function createCharacter(data) {
     id: data.id || uid(), name: data.name || 'A', color: data.color || PALETTE[0],
     height: clamp(finite(data.height, 175), 100, 220), yaw: finite(data.yaw, 0),
     root: new THREE.Group(), joints: {}, hits: [], flesh: [], balls: [], mats: [], aids: new THREE.Group(),
+    outlineBox: new THREE.Box3(), outline: null, outlineMeshes: [],
   };
   const col = new THREE.Color(c.color);
   const boneMat = new THREE.MeshBasicMaterial({ color: col });
@@ -576,6 +577,7 @@ function createCharacter(data) {
   // 머리 (얼굴 방향을 알 수 있도록 코 표시)
   const hd = c.joints.head;
   const headBall = new THREE.Mesh(sphereGeo, headMat); headBall.scale.setScalar(0.1); headBall.position.set(0, 0.1, 0); hd.add(headBall);
+  c.headBall = headBall;
   const nose = new THREE.Mesh(coneGeo, noseMat); nose.scale.set(0.022, 0.06, 0.022);
   nose.rotation.x = Math.PI / 2; nose.position.set(0, 0.1, 0.105); hd.add(nose);
   const headHit = new THREE.Mesh(sphereGeo, hitMat); headHit.scale.setScalar(0.105); headHit.position.set(0, 0.1, 0);
@@ -594,6 +596,12 @@ function createCharacter(data) {
   c.ring.position.y = c.disc.position.y = 0.002;
   c.aids.add(c.ring, c.disc, arrow, c.arrowHit);
   c.mats.push(c.ring.material, c.disc.material, arrow.material);
+
+  // 선택된 캐릭터의 실제 신체만 감싸는 외곽 박스 (바닥 원/라벨/히트영역 제외)
+  c.outlineMeshes = [...c.flesh, ...c.balls, headBall, nose];
+  c.outline = new THREE.Box3Helper(c.outlineBox, 0x3e63dd);
+  c.outline.material.depthTest = false; c.outline.material.transparent = true; c.outline.material.opacity = 1;
+  c.outline.renderOrder = 998; c.outline.visible = false; scene.add(c.outline);
 
   // 이름표
   c.label = el('div', 'lab'); c.label.innerHTML = '<i></i><span></span>';
@@ -631,13 +639,23 @@ function applyChar(c) {
   c.root.updateMatrixWorld(true);
   mark();
 }
+const charOutlineTmp = new THREE.Box3();
+function updateCharOutline(c) {
+  c.outlineBox.makeEmpty();
+  c.root.updateMatrixWorld(true);
+  c.outlineMeshes.forEach(m => { charOutlineTmp.setFromObject(m); c.outlineBox.union(charOutlineTmp); });
+  if (!c.outlineBox.isEmpty()) c.outlineBox.expandByScalar(Math.max(0.012, 0.018 * c.root.scale.x));
+  c.outline.visible = c.id === sel.c && !sel.p;
+}
 function applyDisplay(c) {
   c.flesh.forEach(m => { m.visible = disp.body; });
   c.balls.forEach(m => { m.visible = disp.joints; });
 }
 function applyDisplayAll() { grid.visible = disp.grid; chars.forEach(applyDisplay); props.forEach(applyProp); mark(); }
 function disposeChar(c) {
-  scene.remove(c.root, c.aids); c.mats.forEach(m => m.dispose()); c.label.remove();
+  scene.remove(c.root, c.aids, c.outline); c.mats.forEach(m => m.dispose());
+  if (c.outline) { c.outline.geometry.dispose(); c.outline.material.dispose(); }
+  c.label.remove();
 }
 function serializeChar(c) {
   const q = {}; for (const n of JN) q[n] = c.joints[n].quaternion.toArray().map(r5);
@@ -1000,7 +1018,7 @@ function toScreen(v) {
 function render() {
   const { W, H } = stageSize();
   syncCams(); updateCamViz(); updateGizmo();
-  chars.forEach(c => { c.aids.rotation.y = feetYaw(c); });
+  chars.forEach(c => { c.aids.rotation.y = feetYaw(c); updateCharOutline(c); });
   props.forEach(p => { p.outline.visible = p.id === sel.p; });
   camViz.visible = view.mode === 'work';
   const rect = viewRect();
@@ -1049,7 +1067,7 @@ function withClean(opts, fn) {
   const saved = [], hide = (o, v) => { saved.push([o, o.visible]); o.visible = v; };
   hide(gizmo, false); hide(camViz, false); hide(grid, opts.grid === 'on' ? true : opts.grid === true ? disp.grid : false);
   const alone = opts.only || opts.solo;
-  chars.forEach(c => { hide(c.aids, false); if ((opts.only && c !== opts.only) || opts.solo) hide(c.root, false); });
+  chars.forEach(c => { hide(c.aids, false); hide(c.outline, false); if ((opts.only && c !== opts.only) || opts.solo) hide(c.root, false); });
   props.forEach(p => { hide(p.outline, false); if (alone) hide(p.root, false); });
   try { return fn(); } finally { saved.reverse().forEach(([o, v]) => { o.visible = v; }); }
 }
@@ -1127,7 +1145,15 @@ stage.addEventListener('pointerdown', e => {
   if (e.button !== 0) return;
   setRay(p);
   const hit = pick();
-  if (!hit) { drag = { type: e.shiftKey ? 'pan' : 'orbit', moved: false, dist: 0 }; stage.style.cursor = 'grabbing'; return; }
+  if (!hit) { drag = { type: 'orbit', moved: false, dist: 0 }; stage.style.cursor = 'grabbing'; return; }
+
+  // 캐릭터 위에서 Shift+드래그는 관절 조작보다 우선해 캐릭터 전체를 수직으로만 이동한다.
+  if (e.shiftKey && (hit.kind === 'char' || hit.kind === 'joint' || hit.kind === 'base')) {
+    const c = hit.c; selectChar(c);
+    const n = activeCam().getWorldDirection(V3()); n.y = 0; if (n.lengthSq() < 1e-6) n.set(0, 0, 1); n.normalize();
+    drag = startMove(c, new THREE.Plane().setFromNormalAndCoplanarPoint(n, c.root.position), true);
+    return;
+  }
 
   if (hit.kind === 'ring') {
     const c = selChar(), jo = c.joints[sel.j], center = V3(); jo.getWorldPosition(center);
@@ -1165,20 +1191,14 @@ stage.addEventListener('pointerdown', e => {
   }
   if (hit.kind === 'char') {
     const c = hit.c; selectChar(c);
-    if (e.shiftKey) {
-      const n = activeCam().getWorldDirection(V3()); n.y = 0; if (n.lengthSq() < 1e-6) n.set(0, 0, 1); n.normalize();
-      drag = startMove(c, new THREE.Plane().setFromNormalAndCoplanarPoint(n, c.root.position), true);
-    } else drag = startMove(c, new THREE.Plane(V3(0, 1, 0), 0), false);
+    drag = startMove(c, new THREE.Plane(V3(0, 1, 0), 0), false);
     return;
   }
   const { c, name } = hit, def = DEF[name], jo = c.joints[name];
   selectJoint(c, name);
   const wp = V3(); jo.getWorldPosition(wp);
   if (def.mode === 'move') {
-    if (e.shiftKey) {
-      const n = activeCam().getWorldDirection(V3()); n.y = 0; if (n.lengthSq() < 1e-6) n.set(0, 0, 1); n.normalize();
-      drag = startMove(c, new THREE.Plane().setFromNormalAndCoplanarPoint(n, wp), true);
-    } else drag = startMove(c, new THREE.Plane(V3(0, 1, 0), -wp.y), false);
+    drag = startMove(c, new THREE.Plane(V3(0, 1, 0), -wp.y), false);
     return;
   }
   const pl = new THREE.Plane().setFromNormalAndCoplanarPoint(activeCam().getWorldDirection(V3()), wp);
