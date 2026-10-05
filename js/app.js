@@ -791,7 +791,8 @@ stage.addEventListener('pointerdown', e => {
   if (!hit) { drag = { type: 'orbit', moved: false, dist: 0 }; stage.style.cursor = 'grabbing'; return; }
 
   // 캐릭터 위에서 Shift+드래그는 관절 조작보다 우선하며, X/Z를 건드리지 않고 Y축만 이동한다.
-  if (e.shiftKey && (hit.kind === 'char' || hit.kind === 'joint' || hit.kind === 'base')) {
+  // 바닥 원(base)은 기존 평면 이동 전용으로 유지한다.
+  if (e.shiftKey && (hit.kind === 'char' || hit.kind === 'joint')) {
     const c = hit.c; selectChar(c);
     drag = startCharVertical(c, p.y);
     stage.style.cursor = 'ns-resize';
@@ -834,9 +835,9 @@ stage.addEventListener('pointerdown', e => {
   }
   if (hit.kind === 'char') {
     const c = hit.c; selectChar(c);
-    // 캐릭터 몸통 일반 드래그는 기존 카메라 회전 규칙을 따른다. 평면 이동은 바닥 원으로 유지한다.
-    drag = { type: 'orbit', moved: false, dist: 0, keepSelection: true };
-    stage.style.cursor = 'grabbing';
+    // 캐릭터 몸통 일반 드래그는 X/Z 평면 이동. Shift는 위의 charY 분기에서 Y축 전용 이동으로 처리한다.
+    drag = startMove(c, new THREE.Plane(V3(0, 1, 0), 0), false);
+    stage.style.cursor = 'move';
     return;
   }
   const { c, name } = hit, def = DEF[name], jo = c.joints[name];
@@ -949,7 +950,7 @@ function hoverSoon(p) {
     hoverT = 0; if (drag) return;
     if (spacePan) { stage.style.cursor = 'grab'; return; }
     setRay(p); const h = pick();
-    stage.style.cursor = !h ? '' : (h.kind === 'base' || h.kind === 'cam' || h.kind === 'prop') ? 'move' : h.kind === 'char' ? 'pointer' : h.kind === 'aim' ? 'crosshair' : h.kind === 'arrow' ? 'grab' : 'pointer';
+    stage.style.cursor = !h ? '' : (h.kind === 'base' || h.kind === 'char' || h.kind === 'cam' || h.kind === 'prop') ? 'move' : h.kind === 'aim' ? 'crosshair' : h.kind === 'arrow' ? 'grab' : 'pointer';
   }, 40);
 }
 pipEl.addEventListener('click', () => setView('cam'));
