@@ -236,7 +236,7 @@ kbd{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;background:#eef0f3;bor
 <body>
 
 <header>
-  <a class="brand" href="https://poseblock3d.vercel.app/" aria-label="PoseBlock 3D 홈페이지" title="PoseBlock 3D 홈페이지로 이동"><span class="logo">◈</span><span class="t">PoseBlock <b>3D</b></span></a><span class="app-ver" aria-label="현재 버전">v1.8.0</span>
+  <a class="brand" href="https://poseblock3d.vercel.app/" aria-label="PoseBlock 3D 홈페이지" title="PoseBlock 3D 홈페이지로 이동"><span class="logo">◈</span><span class="t">PoseBlock <b>3D</b></span></a><span class="app-ver" aria-label="현재 버전">v1.8.1</span>
   <div class="grp">
     <button class="btn" id="undo" title="되돌리기 (Ctrl+Z)">↶</button>
     <button class="btn" id="redo" title="다시 실행 (Ctrl+Shift+Z)">↷</button>
@@ -1710,7 +1710,7 @@ const PRESETS = [
 ];
 
 // ------------------------------------------------------------
-// 프리셋 사전 v1.8.0
+// 프리셋 사전 v1.8.1
 // 기존 12개 PRESETS는 빠른 시작용 기본 프리셋으로 유지하고,
 // 사전은 people/tags/pose/layout 데이터만 추가하면 확장할 수 있도록 분리합니다.
 // ------------------------------------------------------------
@@ -1766,7 +1766,7 @@ const PAIR_POSES = {
   sideKickA: { q: {"pelvis":[0.0021,-0.0062,-0.317,0.9484],"spineMid":[0.0905,-0.111,-0.0102,0.9896],"spineUp":[-0.1864,0.2368,-0.0024,0.9535],"neck":[0.44,-0.559,0.0058,0.7028],"shoulderL":[0.2548,0.1917,-0.0042,0.9478],"elbowL":[-0.6456,-0.4858,0.0105,0.5892],"hipL":[-0.5139,-0.034,0.4182,0.7482],"kneeL":[-0.4354,-0.1249,0.7718,-0.4464],"ankleL":[0.1905,-0.0251,-0.5315,-0.825],"shoulderR":[-0.1294,-0.0008,0.158,0.9789],"elbowR":[0.5783,-0.4768,-0.2647,-0.6068],"wristR":[0.0013,-0.2567,-0.0115,0.9664],"hipR":[-0.0003,-0.0021,0.5951,-0.8037]} },
   sideKickB: { q: {"pelvis":[0.0182,0,0.0117,0.9998],"spineLow":[0.1702,-0.004,0.0001,0.9854],"spineMid":[0.1581,-0.0037,0.0001,0.9874],"shoulderL":[-0.3628,0.0085,-0.0002,0.9318],"hipL":[-0.297,0.0069,-0.0001,0.9548],"clavicleR":[0,-0.0071,-0.013,0.9999],"shoulderR":[-0.4662,-0.0013,0.0064,0.8846],"hipR":[-0.3825,0.0089,-0.0002,0.9239]} },
   wallA: { q: {"neck":[0,0.0932,0,0.99565],"head":[0,0.15199,0,0.98838],"clavicleL":[0,0.00172,0.01541,0.99988],"shoulderL":[-0.00028,0,0.0809,0.99672],"shoulderR":[0.06015,-0.00429,-0.07114,0.99564],"elbowR":[-0.12816,0,0,0.99175],"wristR":[0.06805,0.04469,0.00311,0.99668],"handTipR":[0,-0.07469,0,0.99721],"hipR":[-0.09745,0.56648,-0.08636,0.81372],"kneeR":[0.04904,0.01487,0.24628,0.96784],"ankleR":[0.05662,-0.51766,-0.32242,0.79049]} },
-  wallB: { q: {"spineLow":[0.10784,0,0,0.99417],"shoulderL":[-0.39746,-0.00939,0.09829,0.91229],"elbowL":[-0.71177,-0.10422,0.40902,0.56145],"wristL":[0,0.40573,0,0.91399],"handTipL":[0,-0.29767,0,-0.95467],"shoulderR":[-0.63885,0.05491,0.13413,0.75555],"elbowR":[-0.69327,0.43452,-0.16259,0.55148],"wristR":[-0.221,-0.10667,0.05655,0.96777],"handTipR":[-0.37843,-0.10251,-0.13644,0.90976]} },
+  wallB: { q: {"spineLow":[0.10784,0,0,0.99417],"shoulderL":[-0.48632,0.08772,0.16824,0.85293],"elbowL":[-0.60991,-0.06512,0.39893,0.68163],"wristL":[0,0.40573,0,0.91399],"handTipL":[0,-0.29767,0,-0.95467],"shoulderR":[-0.63885,0.05491,0.13413,0.75555],"elbowR":[-0.69327,0.43452,-0.16259,0.55148],"wristR":[-0.221,-0.10667,0.05655,0.96777],"handTipR":[-0.37843,-0.10251,-0.13644,0.90976]} },
   supportA: { j: { shoulderR: [0,0,-78], elbowR: [-50,0,0], spineLow:[4,0,0], hipR:[-10,0,0], kneeR:[18,0,0] } },
   supportB: { j: { shoulderL: [0,0,72], elbowL: [-66,0,0], spineLow:[16,0,-8], hipL:[-34,0,0], kneeL:[54,0,0], hipR:[8,0,0], kneeR:[18,0,0] } },
   pushA: { j: { ...sym({ shoulderL: [-82,0,16], elbowL: [-8,0,0] }), spineLow:[18,0,0], hipL:[-18,0,0], hipR:[12,0,0] } },
@@ -1850,6 +1850,14 @@ function presetPropData(spec, anchor, baseYaw) {
     yaw: baseYaw + finite(spec.yaw, 0), sc: spec.sc,
   };
 }
+function clearPresetProps() {
+  const made = props.filter(p => p.dictPresetAsset);
+  if (!made.length) return;
+  made.forEach(disposeProp);
+  props = props.filter(p => !p.dictPresetAsset);
+  if (sel.p && !props.find(p => p.id === sel.p)) sel.p = null;
+  syncProps(); mark();
+}
 function addPresetProps(p, anchor, baseYaw) {
   const specs = Array.isArray(p && p.props) ? p.props : [];
   if (!specs.length) return [];
@@ -1857,7 +1865,7 @@ function addPresetProps(p, anchor, baseYaw) {
   for (const spec of specs) {
     if (props.length >= MAX_PROPS) { toast(`에셋은 최대 ${MAX_PROPS}개까지 놓을 수 있어 프리셋 에셋 일부를 추가하지 못했습니다.`, 3800); break; }
     const q = createProp(presetPropData(spec, anchor, baseYaw));
-    if (q) { props.push(q); made.push(q); }
+    if (q) { q.dictPresetAsset = true; props.push(q); made.push(q); }
   }
   if (made.length) syncProps();
   return made;
@@ -1977,6 +1985,7 @@ function openPairPresetDialog(p) {
       const a = chars.find(c => c.id === ar.s.value), b = chars.find(c => c.id === br.s.value);
       if (!a || !b || a === b) { toast('A와 B에 서로 다른 캐릭터를 선택해 주세요.'); return; }
       const anchor = a.root.position.clone(), baseYaw = a.yaw;
+      clearPresetProps();
       applyPairPresetCore(a,b,p,{anchor,baseYaw}); addPresetProps(p,anchor,baseYaw); selectChar(a); commit(); closeDialog(); closePresetDict();
       toast(`'${p.name}' 프리셋을 ${a.name} / ${b.name}에 적용했습니다.`);
     } },
