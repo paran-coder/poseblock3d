@@ -1274,7 +1274,7 @@ const PRESETS = [
 ];
 
 // ------------------------------------------------------------
-// 프리셋 사전 v1.7.5
+// 프리셋 사전 v1.8.0
 // 기존 12개 PRESETS는 빠른 시작용 기본 프리셋으로 유지하고,
 // 사전은 people/tags/pose/layout 데이터만 추가하면 확장할 수 있도록 분리합니다.
 // ------------------------------------------------------------
@@ -1317,8 +1317,8 @@ const PAIR_POSES = {
   handshakeA: { j: { shoulderR: [-58, 0, -8], elbowR: [-52, 0, 0], shoulderL: [0, 0, 7], elbowL: [-10, 0, 0], spineLow: [4, 0, 0] } },
   handshakeB: { j: { shoulderR: [-58, 0, -8], elbowR: [-52, 0, 0], shoulderL: [0, 0, 7], elbowL: [-10, 0, 0], spineLow: [4, 0, 0] } },
   hug: { j: { ...sym({ shoulderL: [-54, 0, 52], elbowL: [-72, 0, 0] }), spineLow: [5, 0, 0], neck: [-4, 0, 0] } },
-  kissA: { j: { ...sym({ shoulderL: [-34, 0, 30], elbowL: [-58, 0, 0] }), spineLow: [7, 0, 0], neck: [-7, 0, 0], head: [-7, 0, 0] } },
-  kissB: { j: { ...sym({ shoulderL: [-30, 0, 26], elbowL: [-52, 0, 0] }), spineLow: [5, 0, 0], neck: [5, 0, 0], head: [5, 0, 0] } },
+  kissA: { q: {"spineLow":[0.1267,0,0,0.99194],"neck":[-0.02613,0.01381,0.05953,0.99779],"shoulderL":[-0.85701,0.04492,0.02687,0.51263],"elbowL":[0.08438,-0.15876,0.47009,-0.86411],"wristL":[-0.1056,0.07021,0.03325,0.99137],"handTipL":[0.11834,0.06413,0.03152,-0.9904],"shoulderR":[-0.77777,0.02209,-0.08146,0.62286],"elbowR":[0.59765,-0.05093,-0.14113,-0.78759],"wristR":[-0.04747,0.05752,-0.08263,0.99379]} },
+  kissB: { q: {"spineLow":[0.14594,0,0,0.98929],"neck":[-0.02613,0.01608,0.05885,0.9978],"shoulderL":[-0.63336,0.0332,0.04047,0.77209],"elbowL":[-0.11167,-0.06768,-0.16814,0.97708],"wristL":[-0.03281,-0.18288,-0.64086,0.74483],"shoulderR":[-0.63674,0.04732,0.0621,0.76712],"elbowR":[-0.47986,0.07853,0.19365,0.8521],"wristR":[-0.10139,-0.08466,0.16938,0.97666],"handTipR":[0.11324,0.05757,0.07325,0.98919]} },
   armLinkA: { j: { shoulderR: [-8, 0, -28], elbowR: [-92, 0, 0], shoulderL: [0, 0, 7], elbowL: [-10, 0, 0] } },
   armLinkB: { j: { shoulderL: [-8, 0, 28], elbowL: [-92, 0, 0], shoulderR: [0, 0, -7], elbowR: [-10, 0, 0] } },
   shoulderA: { j: { shoulderR: [0, 0, -88], elbowR: [-8, 0, 0], shoulderL: [0, 0, 8], elbowL: [-12, 0, 0] } },
@@ -1327,6 +1327,10 @@ const PAIR_POSES = {
   piggyB: { j: { spineLow: [-8, 0, 0], ...sym({ hipL: [-82, 0, 20], kneeL: [98, 0, 0], shoulderL: [-44, 0, 38], elbowL: [-66, 0, 0] }) } },
   carryA: { q: {"shoulderL": [-0.1469, -0.012, 0.0361, 0.9884], "elbowL": [-0.6399, 0.2744, -0.0989, 0.711], "wristL": [0.1701, -0.4291, 0.2687, -0.8454], "handTipL": [-0.0358, 0.0042, 0.0029, 0.9994], "shoulderR": [-0.0553, -0.0021, -0.0143, 0.9984], "elbowR": [-0.6319, 0.3346, -0.2087, 0.6672], "wristR": [0.0036, 0.1996, -0.4016, 0.8938], "handTipR": [0.4037, 0.073, -0.1222, -0.9037]} },
   carryB: { q: {"pelvis": [-0.4687, 0.5224, 0.4329, 0.5657], "spineLow": [0.0038, 0.1116, -0.0215, 0.9935], "spineMid": [0.1209, -0.0003, 0, 0.9927], "neck": [0.2951, 0, 0, 0.9555], "clavicleL": [0, -0.016, 0.0125, 0.9998], "shoulderL": [-0.3332, 0.0946, 0.2288, 0.9098], "elbowL": [0.1662, -0.1243, 0.2567, -0.9439], "wristL": [0.0053, 0.1795, -0.2448, 0.9528], "hipL": [-0.2714, 0, 0, 0.9625], "kneeL": [0.518, 0, 0, 0.8554], "clavicleR": [0.0001, -0.0006, -0.0239, 0.9997], "shoulderR": [-0.3405, 0.0287, 0.1643, 0.9253], "elbowR": [0.2083, -0.3385, -0.0898, -0.9132], "wristR": [0.0166, -0.0008, -0.0845, 0.9963], "hipR": [-0.2747, -0.0001, -0.0002, 0.9615], "kneeR": [0.5271, 0.0002, 0, 0.8498]} },
+  sideKickA: { q: {"pelvis":[0.0021,-0.0062,-0.317,0.9484],"spineMid":[0.0905,-0.111,-0.0102,0.9896],"spineUp":[-0.1864,0.2368,-0.0024,0.9535],"neck":[0.44,-0.559,0.0058,0.7028],"shoulderL":[0.2548,0.1917,-0.0042,0.9478],"elbowL":[-0.6456,-0.4858,0.0105,0.5892],"hipL":[-0.5139,-0.034,0.4182,0.7482],"kneeL":[-0.4354,-0.1249,0.7718,-0.4464],"ankleL":[0.1905,-0.0251,-0.5315,-0.825],"shoulderR":[-0.1294,-0.0008,0.158,0.9789],"elbowR":[0.5783,-0.4768,-0.2647,-0.6068],"wristR":[0.0013,-0.2567,-0.0115,0.9664],"hipR":[-0.0003,-0.0021,0.5951,-0.8037]} },
+  sideKickB: { q: {"pelvis":[0.0182,0,0.0117,0.9998],"spineLow":[0.1702,-0.004,0.0001,0.9854],"spineMid":[0.1581,-0.0037,0.0001,0.9874],"shoulderL":[-0.3628,0.0085,-0.0002,0.9318],"hipL":[-0.297,0.0069,-0.0001,0.9548],"clavicleR":[0,-0.0071,-0.013,0.9999],"shoulderR":[-0.4662,-0.0013,0.0064,0.8846],"hipR":[-0.3825,0.0089,-0.0002,0.9239]} },
+  wallA: { q: {"neck":[0,0.0932,0,0.99565],"head":[0,0.15199,0,0.98838],"clavicleL":[0,0.00172,0.01541,0.99988],"shoulderL":[-0.00028,0,0.0809,0.99672],"shoulderR":[0.06015,-0.00429,-0.07114,0.99564],"elbowR":[-0.12816,0,0,0.99175],"wristR":[0.06805,0.04469,0.00311,0.99668],"handTipR":[0,-0.07469,0,0.99721],"hipR":[-0.09745,0.56648,-0.08636,0.81372],"kneeR":[0.04904,0.01487,0.24628,0.96784],"ankleR":[0.05662,-0.51766,-0.32242,0.79049]} },
+  wallB: { q: {"spineLow":[0.10784,0,0,0.99417],"shoulderL":[-0.39746,-0.00939,0.09829,0.91229],"elbowL":[-0.71177,-0.10422,0.40902,0.56145],"wristL":[0,0.40573,0,0.91399],"handTipL":[0,-0.29767,0,-0.95467],"shoulderR":[-0.63885,0.05491,0.13413,0.75555],"elbowR":[-0.69327,0.43452,-0.16259,0.55148],"wristR":[-0.221,-0.10667,0.05655,0.96777],"handTipR":[-0.37843,-0.10251,-0.13644,0.90976]} },
   supportA: { j: { shoulderR: [0,0,-78], elbowR: [-50,0,0], spineLow:[4,0,0], hipR:[-10,0,0], kneeR:[18,0,0] } },
   supportB: { j: { shoulderL: [0,0,72], elbowL: [-66,0,0], spineLow:[16,0,-8], hipL:[-34,0,0], kneeL:[54,0,0], hipR:[8,0,0], kneeR:[18,0,0] } },
   pushA: { j: { ...sym({ shoulderL: [-82,0,16], elbowL: [-8,0,0] }), spineLow:[18,0,0], hipL:[-18,0,0], hipR:[12,0,0] } },
@@ -1354,10 +1358,12 @@ const DICT_PRESETS = [
   { id:'two-shake', name:'악수', people:2, tags:['일상','상호작용'], a:PAIR_POSES.handshakeA, b:PAIR_POSES.handshakeB, layout:{ b:[0,0,0.72], face:'each' } },
   { id:'two-link', name:'팔짱', people:2, tags:['일상','친밀'], a:PAIR_POSES.armLinkA, b:PAIR_POSES.armLinkB, layout:{ b:[0.42,0,0.04], yaws:[0,0] } },
   { id:'two-hug', name:'포옹', people:2, tags:['감정','친밀'], a:PAIR_POSES.hug, b:PAIR_POSES.hug, layout:{ b:[0,0,0.42], face:'each' } },
-  { id:'two-kiss', name:'키스', people:2, tags:['감정','친밀'], a:PAIR_POSES.kissA, b:PAIR_POSES.kissB, layout:{ b:[0,0,0.35], face:'each' } },
+  { id:'two-kiss', name:'키스', people:2, tags:['감정','친밀'], a:PAIR_POSES.kissA, b:PAIR_POSES.kissB, layout:{"absolute":true,"a":[0,0,0],"b":[0.05622,0,0.52332],"yaws":[0,-179.99985]} },
   { id:'two-shoulder', name:'어깨동무', people:2, tags:['일상','친밀'], a:PAIR_POSES.shoulderA, b:PAIR_POSES.shoulderB, layout:{ b:[0.40,0,0], yaws:[0,0] } },
   { id:'two-piggy', name:'업기', people:2, tags:['액션','친밀'], a:PAIR_POSES.piggyA, b:PAIR_POSES.piggyB, layout:{ b:[0,0.42,-0.18], yaws:[0,0] } },
   { id:'two-carry', name:'안아들기', people:2, tags:['액션','친밀'], a:PAIR_POSES.carryA, b:PAIR_POSES.carryB, layout:{ absolute:true, a:[0,0,0], b:[0.0231,0.1770,0.2448], yaws:[0,0] } },
+  { id:'two-side-kick', name:'이단옆차기', people:2, tags:['액션','상호작용'], a:PAIR_POSES.sideKickA, b:PAIR_POSES.sideKickB, layout:{"absolute":true,"a":[0,0,0],"b":[-1.4269,0.2389,0.07299],"yaws":[0,95.99824]} },
+  { id:'two-wall', name:'벽치기', people:2, tags:['친밀','상호작용'], a:PAIR_POSES.wallA, b:PAIR_POSES.wallB, layout:{"absolute":true,"a":[0,0,0],"b":[-0.01411,0,0.40982],"yaws":[0,163.64706]}, props:[{"type":"wall","name":"벽 1","color":"#f1f3f5","pos":[-0.00063,0,-0.1733],"yaw":0,"sc":[1,1,1]}] },
   { id:'two-support', name:'부축', people:2, tags:['일상','상호작용'], a:PAIR_POSES.supportA, b:PAIR_POSES.supportB, layout:{ b:[0.38,0,0], yaws:[0,0] } },
   { id:'two-push', name:'밀기', people:2, tags:['액션','상호작용'], a:PAIR_POSES.pushA, b:PAIR_POSES.pushB, layout:{ b:[0,0,0.64], face:'each' } },
   { id:'two-pull', name:'당기기', people:2, tags:['액션','상호작용'], a:PAIR_POSES.pullA, b:PAIR_POSES.pullB, layout:{ b:[0,0,0.78], face:'each' } },
@@ -1400,6 +1406,26 @@ function localOffset(v, yaw, scale = 1) {
   const x = (v && v[0] || 0) * scale, z = (v && v[2] || 0) * scale, c = Math.cos(yaw), s = Math.sin(yaw);
   return V3(x * c + z * s, (v && v[1] || 0) * scale, -x * s + z * c);
 }
+function presetPropData(spec, anchor, baseYaw) {
+  const o = localOffset(spec && spec.pos || [0,0,0], baseYaw, 1);
+  return {
+    type: spec.type, name: spec.name, color: spec.color,
+    pos: [anchor.x + o.x, anchor.y + o.y, anchor.z + o.z],
+    yaw: baseYaw + finite(spec.yaw, 0), sc: spec.sc,
+  };
+}
+function addPresetProps(p, anchor, baseYaw) {
+  const specs = Array.isArray(p && p.props) ? p.props : [];
+  if (!specs.length) return [];
+  const made = [];
+  for (const spec of specs) {
+    if (props.length >= MAX_PROPS) { toast(`에셋은 최대 ${MAX_PROPS}개까지 놓을 수 있어 프리셋 에셋 일부를 추가하지 못했습니다.`, 3800); break; }
+    const q = createProp(presetPropData(spec, anchor, baseYaw));
+    if (q) { props.push(q); made.push(q); }
+  }
+  if (made.length) syncProps();
+  return made;
+}
 function applyPairPresetCore(a, b, p, opts = {}) {
   if (!a || !b || a === b) return false;
   const anchor = opts.anchor ? opts.anchor.clone() : a.root.position.clone();
@@ -1432,9 +1458,14 @@ function disposeTempChar(c) { if (c) disposeChar(c); }
 function pairThumb(p) {
   const a = createCharacter({ name:'', color:'#e5484d', pos:[0,0,0], height:175, yaw:0 });
   const b = createCharacter({ name:'', color:'#3e63dd', pos:[0,0,0], height:175, yaw:0 });
+  const tempProps = [];
   a.aids.visible = b.aids.visible = false; a.label.style.display = b.label.style.display = 'none';
   try {
-    applyPairPresetCore(a, b, p, { anchor: V3(-((p.layout && p.layout.b && p.layout.b[0]) || 0) / 2, 0, -((p.layout && p.layout.b && p.layout.b[2]) || 0) / 2), baseYaw: 0 });
+    const anchor = V3(-((p.layout && p.layout.b && p.layout.b[0]) || 0) / 2, 0, -((p.layout && p.layout.b && p.layout.b[2]) || 0) / 2);
+    applyPairPresetCore(a, b, p, { anchor, baseYaw: 0 });
+    for (const spec of (Array.isArray(p.props) ? p.props : [])) {
+      const q = createProp(presetPropData(spec, anchor, 0)); if (q) tempProps.push(q);
+    }
     a.root.updateMatrixWorld(true); b.root.updateMatrixWorld(true);
     const pts = [];
     for (const c of [a,b]) for (const n of JN) pts.push(c.joints[n].getWorldPosition(V3()));
@@ -1444,7 +1475,7 @@ function pairThumb(p) {
     const dist = Math.max(size.y / (2*tan), size.x / (2*tan*aspect), size.z / (2*tan)) * 1.12 + 0.25;
     const f = V3(0.72, 0.22, 1).normalize(); cam.position.copy(ctr).addScaledVector(f, dist); cam.lookAt(ctr); cam.updateMatrixWorld(true);
     return renderWith(cam, 240, 180, { solo:true, grid:'off' }).toDataURL('image/jpeg', 0.82);
-  } finally { disposeTempChar(a); disposeTempChar(b); mark(); }
+  } finally { tempProps.forEach(disposeProp); disposeTempChar(a); disposeTempChar(b); mark(); }
 }
 function dictThumb(p) {
   if (dictThumbs[p.id]) return dictThumbs[p.id];
@@ -1510,7 +1541,7 @@ function openPairPresetDialog(p) {
       const a = chars.find(c => c.id === ar.s.value), b = chars.find(c => c.id === br.s.value);
       if (!a || !b || a === b) { toast('A와 B에 서로 다른 캐릭터를 선택해 주세요.'); return; }
       const anchor = a.root.position.clone(), baseYaw = a.yaw;
-      applyPairPresetCore(a,b,p,{anchor,baseYaw}); selectChar(a); commit(); closeDialog(); closePresetDict();
+      applyPairPresetCore(a,b,p,{anchor,baseYaw}); addPresetProps(p,anchor,baseYaw); selectChar(a); commit(); closeDialog(); closePresetDict();
       toast(`'${p.name}' 프리셋을 ${a.name} / ${b.name}에 적용했습니다.`);
     } },
     { label:'취소' },
