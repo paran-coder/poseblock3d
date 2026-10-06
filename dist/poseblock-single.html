@@ -126,6 +126,7 @@ aside{overflow:auto;background:var(--panel);padding:12px;display:flex;flex-direc
 .row:first-child{margin-top:0}
 #charCtl{margin-top:8px}
 .row label{color:var(--mute);width:44px;flex:none}
+#propCtl .row label{width:64px;white-space:nowrap}
 .row .v{width:52px;text-align:right;font-variant-numeric:tabular-nums;color:var(--ink)}
 input[type=range]{flex:1;accent-color:var(--acc);min-width:0}
 select{flex:1;min-width:0;height:30px;border:1px solid var(--line);border-radius:8px;padding:0 8px;font:inherit;background:#fff}
@@ -236,7 +237,7 @@ kbd{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;background:#eef0f3;bor
 <body>
 
 <header>
-  <a class="brand" href="https://poseblock3d.vercel.app/" aria-label="PoseBlock 3D 홈페이지" title="PoseBlock 3D 홈페이지로 이동"><span class="logo">◈</span><span class="t">PoseBlock <b>3D</b></span></a><span class="app-ver" aria-label="현재 버전">v1.9.0</span>
+  <a class="brand" href="https://poseblock3d.vercel.app/" aria-label="PoseBlock 3D 홈페이지" title="PoseBlock 3D 홈페이지로 이동"><span class="logo">◈</span><span class="t">PoseBlock <b>3D</b></span></a><span class="app-ver" aria-label="현재 버전">v1.9.1</span>
   <div class="grp">
     <button class="btn" id="undo" title="되돌리기 (Ctrl+Z)">↶</button>
     <button class="btn" id="redo" title="다시 실행 (Ctrl+Shift+Z)">↷</button>
@@ -932,20 +933,26 @@ function createProp(data) {
   const T = PROP_TYPES[data.type]; if (!T) return null;
   const same = props.filter(q => q.type === data.type).length + 1;
   const p = { id: data.id || uid(), type: data.type, name: typeof data.name === 'string' && data.name ? data.name.slice(0, 14) : `${T.name} ${same}`,
-    color: /^#[0-9a-fA-F]{6}$/.test(data.color) ? data.color : T.color, yaw: finite(data.yaw, 0), pitch: finite(data.pitch, 0), sc: propSc(data.sc), root: new THREE.Group(), meshes: [], mats: [] };
+    color: /^#[0-9a-fA-F]{6}$/.test(data.color) ? data.color : T.color, yaw: finite(data.yaw, 0), pitch: finite(data.pitch, 0), sc: propSc(data.sc), root: new THREE.Group(), pivot: new THREE.Group(), scaleRoot: new THREE.Group(), meshes: [], mats: [] };
   p.mat = new THREE.MeshLambertMaterial({ color: p.color }); p.dark = new THREE.MeshLambertMaterial({ color: 0x343a40 }); p.mats.push(p.mat, p.dark);
   T.build(p.mat, p.dark).forEach(o => { o.userData.prop = p; p.root.add(o); p.meshes.push(o); });
   p.root.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(p.root), size = box.getSize(V3()), ctr = box.getCenter(V3());
+  p.center = ctr.clone();
+  p.root.add(p.pivot); p.pivot.add(p.scaleRoot);
+  p.meshes.forEach(o => { p.root.remove(o); o.position.sub(ctr); p.scaleRoot.add(o); });
   p.outline = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(size.x, size.y, size.z)), new THREE.LineBasicMaterial({ color: 0x3e63dd, depthTest: false, transparent: true }));
-  p.outline.position.copy(ctr); p.outline.renderOrder = 998; p.outline.visible = false; p.root.add(p.outline); p.mats.push(p.outline.material);
+  p.outline.position.set(0, 0, 0); p.outline.renderOrder = 998; p.outline.visible = false; p.scaleRoot.add(p.outline); p.mats.push(p.outline.material);
   const q = Array.isArray(data.pos) ? data.pos : [0, 0, 0];
   p.root.position.set(finite(q[0], 0), clamp(finite(q[1], 0), 0, 4), finite(q[2], 0));
   scene.add(p.root); applyProp(p);
   return p;
 }
 function applyProp(p) {
-  p.root.rotation.set(p.pitch, p.yaw, 0, 'YXZ'); p.root.scale.set(...p.sc);
+  p.root.rotation.set(0, 0, 0); p.root.scale.set(1, 1, 1);
+  p.pivot.position.set(p.center.x * p.sc[0], p.center.y * p.sc[1], p.center.z * p.sc[2]);
+  p.pivot.rotation.set(p.pitch, p.yaw, 0, 'YXZ');
+  p.scaleRoot.scale.set(...p.sc);
   p.mats.forEach(m => { if (m.isLineBasicMaterial) return; m.transparent = disp.ghost; m.opacity = disp.ghost ? 0.35 : 1; m.depthWrite = !disp.ghost; m.needsUpdate = true; });
   p.mat.color.set(p.color); p.root.updateMatrixWorld(true); mark();
 }
@@ -1763,7 +1770,7 @@ const PRESETS = [
 ];
 
 // ------------------------------------------------------------
-// 프리셋 사전 v1.9.0
+// 프리셋 사전 v1.9.1
 // 기존 12개 PRESETS는 빠른 시작용 기본 프리셋으로 유지하고,
 // 사전은 people/tags/pose/layout 데이터만 추가하면 확장할 수 있도록 분리합니다.
 // ------------------------------------------------------------
