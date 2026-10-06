@@ -33,7 +33,7 @@
 <body>
 
 <header>
-  <a class="brand" href="https://poseblock3d.vercel.app/" aria-label="PoseBlock 3D 홈페이지" title="PoseBlock 3D 홈페이지로 이동"><span class="logo">◈</span><span class="t">PoseBlock <b>3D</b></span></a><span class="app-ver" aria-label="현재 버전">v1.8.1</span>
+  <a class="brand" href="https://poseblock3d.vercel.app/" aria-label="PoseBlock 3D 홈페이지" title="PoseBlock 3D 홈페이지로 이동"><span class="logo">◈</span><span class="t">PoseBlock <b>3D</b></span></a><span class="app-ver" aria-label="현재 버전">v1.9.0</span>
   <div class="grp">
     <button class="btn" id="undo" title="되돌리기 (Ctrl+Z)">↶</button>
     <button class="btn" id="redo" title="다시 실행 (Ctrl+Shift+Z)">↷</button>
@@ -125,12 +125,17 @@
         <div class="row"><label>가로</label><input type="range" id="pSx" min="20" max="400" step="1"><span class="v" id="pSxV"></span></div>
         <div class="row"><label>높이</label><input type="range" id="pSy" min="20" max="400" step="1"><span class="v" id="pSyV"></span></div>
         <div class="row"><label>세로</label><input type="range" id="pSz" min="20" max="400" step="1"><span class="v" id="pSzV"></span></div>
-        <div class="row"><label>방향</label><input type="range" id="pYaw" min="-180" max="180" step="1"><span class="v" id="pYawV"></span></div>
+        <div class="row"><label>좌우 방향</label><input type="range" id="pYaw" min="-180" max="180" step="1"><span class="v" id="pYawV"></span></div>
+        <div class="row"><label>상하 방향</label><input type="range" id="pPitch" min="-180" max="180" step="1"><span class="v" id="pPitchV"></span></div>
         <div class="row"><label>띄우기</label><input type="range" id="pLift" min="0" max="250" step="1"><span class="v" id="pLiftV"></span></div>
         <label class="chk"><input type="checkbox" id="pLock"> 가로·높이·세로 비율 유지</label>
         <div class="btns"><button class="btn sm" id="propDup">복제</button><button class="btn sm danger" id="propDel">삭제</button></div>
       </div>
-      <p class="hint" id="propHint" style="margin:8px 0 0">에셋은 화면에서 끌어 옮기고(<kbd>Shift</kbd> 위아래), <kbd>Delete</kbd>로 지웁니다.</p>
+      <div id="propMultiCtl" hidden>
+        <p class="hint" id="propMultiCount" style="margin:8px 0">여러 에셋이 선택되었습니다. 이동과 삭제만 사용할 수 있습니다.</p>
+        <div class="btns"><button class="btn sm danger" id="propMultiDel">선택 삭제</button></div>
+      </div>
+      <p class="hint" id="propHint" style="margin:8px 0 0">에셋은 화면에서 끌어 옮기고(<kbd>Shift</kbd> 위아래), <kbd>Shift</kbd>+클릭으로 여러 개를 선택하며 <kbd>Delete</kbd>로 지웁니다.</p>
     </section>
   </div>
 

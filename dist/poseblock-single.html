@@ -236,7 +236,7 @@ kbd{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;background:#eef0f3;bor
 <body>
 
 <header>
-  <a class="brand" href="https://poseblock3d.vercel.app/" aria-label="PoseBlock 3D 홈페이지" title="PoseBlock 3D 홈페이지로 이동"><span class="logo">◈</span><span class="t">PoseBlock <b>3D</b></span></a><span class="app-ver" aria-label="현재 버전">v1.8.1</span>
+  <a class="brand" href="https://poseblock3d.vercel.app/" aria-label="PoseBlock 3D 홈페이지" title="PoseBlock 3D 홈페이지로 이동"><span class="logo">◈</span><span class="t">PoseBlock <b>3D</b></span></a><span class="app-ver" aria-label="현재 버전">v1.9.0</span>
   <div class="grp">
     <button class="btn" id="undo" title="되돌리기 (Ctrl+Z)">↶</button>
     <button class="btn" id="redo" title="다시 실행 (Ctrl+Shift+Z)">↷</button>
@@ -328,12 +328,17 @@ kbd{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;background:#eef0f3;bor
         <div class="row"><label>가로</label><input type="range" id="pSx" min="20" max="400" step="1"><span class="v" id="pSxV"></span></div>
         <div class="row"><label>높이</label><input type="range" id="pSy" min="20" max="400" step="1"><span class="v" id="pSyV"></span></div>
         <div class="row"><label>세로</label><input type="range" id="pSz" min="20" max="400" step="1"><span class="v" id="pSzV"></span></div>
-        <div class="row"><label>방향</label><input type="range" id="pYaw" min="-180" max="180" step="1"><span class="v" id="pYawV"></span></div>
+        <div class="row"><label>좌우 방향</label><input type="range" id="pYaw" min="-180" max="180" step="1"><span class="v" id="pYawV"></span></div>
+        <div class="row"><label>상하 방향</label><input type="range" id="pPitch" min="-180" max="180" step="1"><span class="v" id="pPitchV"></span></div>
         <div class="row"><label>띄우기</label><input type="range" id="pLift" min="0" max="250" step="1"><span class="v" id="pLiftV"></span></div>
         <label class="chk"><input type="checkbox" id="pLock"> 가로·높이·세로 비율 유지</label>
         <div class="btns"><button class="btn sm" id="propDup">복제</button><button class="btn sm danger" id="propDel">삭제</button></div>
       </div>
-      <p class="hint" id="propHint" style="margin:8px 0 0">에셋은 화면에서 끌어 옮기고(<kbd>Shift</kbd> 위아래), <kbd>Delete</kbd>로 지웁니다.</p>
+      <div id="propMultiCtl" hidden>
+        <p class="hint" id="propMultiCount" style="margin:8px 0">여러 에셋이 선택되었습니다. 이동과 삭제만 사용할 수 있습니다.</p>
+        <div class="btns"><button class="btn sm danger" id="propMultiDel">선택 삭제</button></div>
+      </div>
+      <p class="hint" id="propHint" style="margin:8px 0 0">에셋은 화면에서 끌어 옮기고(<kbd>Shift</kbd> 위아래), <kbd>Shift</kbd>+클릭으로 여러 개를 선택하며 <kbd>Delete</kbd>로 지웁니다.</p>
     </section>
   </div>
 
@@ -596,7 +601,7 @@ const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 10, 1, false);
 const coneGeo = new THREE.ConeGeometry(1, 1, 10);
 const hitMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
 let chars = [];
-const sel = { c: null, j: null, p: null, boxC: null };
+const sel = { c: null, j: null, p: null, ps: [], boxC: null };
 let props = [];
 const MAX_PROPS = 30;
 const view = { mode: 'work' };
@@ -927,7 +932,7 @@ function createProp(data) {
   const T = PROP_TYPES[data.type]; if (!T) return null;
   const same = props.filter(q => q.type === data.type).length + 1;
   const p = { id: data.id || uid(), type: data.type, name: typeof data.name === 'string' && data.name ? data.name.slice(0, 14) : `${T.name} ${same}`,
-    color: /^#[0-9a-fA-F]{6}$/.test(data.color) ? data.color : T.color, yaw: finite(data.yaw, 0), sc: propSc(data.sc), root: new THREE.Group(), meshes: [], mats: [] };
+    color: /^#[0-9a-fA-F]{6}$/.test(data.color) ? data.color : T.color, yaw: finite(data.yaw, 0), pitch: finite(data.pitch, 0), sc: propSc(data.sc), root: new THREE.Group(), meshes: [], mats: [] };
   p.mat = new THREE.MeshLambertMaterial({ color: p.color }); p.dark = new THREE.MeshLambertMaterial({ color: 0x343a40 }); p.mats.push(p.mat, p.dark);
   T.build(p.mat, p.dark).forEach(o => { o.userData.prop = p; p.root.add(o); p.meshes.push(o); });
   p.root.updateMatrixWorld(true);
@@ -940,33 +945,57 @@ function createProp(data) {
   return p;
 }
 function applyProp(p) {
-  p.root.rotation.y = p.yaw; p.root.scale.set(...p.sc);
+  p.root.rotation.set(p.pitch, p.yaw, 0, 'YXZ'); p.root.scale.set(...p.sc);
   p.mats.forEach(m => { if (m.isLineBasicMaterial) return; m.transparent = disp.ghost; m.opacity = disp.ghost ? 0.35 : 1; m.depthWrite = !disp.ghost; m.needsUpdate = true; });
   p.mat.color.set(p.color); p.root.updateMatrixWorld(true); mark();
 }
 function disposeProp(p) {
   scene.remove(p.root); p.root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); p.mats.forEach(m => m.dispose());
 }
-const serializeProp = p => ({ id: p.id, type: p.type, name: p.name, color: p.color, pos: p.root.position.toArray().map(r5), yaw: r5(p.yaw), sc: p.sc.map(r5) });
+const serializeProp = p => ({ id: p.id, type: p.type, name: p.name, color: p.color, pos: p.root.position.toArray().map(r5), yaw: r5(p.yaw), pitch: r5(p.pitch), sc: p.sc.map(r5) });
 function sanitizeProps(arr) {
   if (!Array.isArray(arr)) return [];
   return arr.filter(x => x && typeof x === 'object' && PROP_TYPES[x.type]).slice(0, MAX_PROPS).map(x => ({
-    id: typeof x.id === 'string' ? x.id.slice(0, 16) : uid(), type: x.type, name: x.name, color: x.color, pos: x.pos, yaw: x.yaw, sc: x.sc }));
+    id: typeof x.id === 'string' ? x.id.slice(0, 16) : uid(), type: x.type, name: x.name, color: x.color, pos: x.pos, yaw: x.yaw, pitch: finite(x.pitch, 0), sc: x.sc }));
+}
+function normalizePropSelection() {
+  const valid = new Set(props.map(p => p.id));
+  sel.ps = [...new Set((Array.isArray(sel.ps) ? sel.ps : []).filter(id => valid.has(id)))];
+  if (sel.p && valid.has(sel.p) && !sel.ps.includes(sel.p)) sel.ps.unshift(sel.p);
+  if (!sel.p || !valid.has(sel.p)) sel.p = sel.ps[0] || null;
 }
 function setProps(list) {
   props.forEach(disposeProp); props = [];
   list.forEach(d => { const p = createProp(d); if (p) props.push(p); });
-  if (sel.p && !props.find(p => p.id === sel.p)) sel.p = null;
+  normalizePropSelection();
   syncProps(); mark();
 }
+const selectedProps = () => {
+  normalizePropSelection();
+  const ids = new Set(sel.ps);
+  return props.filter(p => ids.has(p.id));
+};
 const selProp = () => props.find(p => p.id === sel.p) || null;
+const isPropSelected = p => !!p && (Array.isArray(sel.ps) ? sel.ps.includes(p.id) : sel.p === p.id);
 function addProp(type) {
   if (props.length >= MAX_PROPS) { toast(`에셋은 최대 ${MAX_PROPS}개까지 놓을 수 있습니다.`); return; }
   const c = selChar(), bx = c ? c.root.position.x : 0, bz = c ? c.root.position.z : 0;
   const dx = [1.2, -1.2, 2.4, -2.4, 3.6, -3.6].find(d => !props.some(q => Math.hypot(q.root.position.x - (bx + d), q.root.position.z - bz) < 0.9)) ?? 1.2;
   const p = createProp({ type, pos: [bx + dx, 0, bz] }); props.push(p); selectProp(p); commit();
 }
-function selectProp(p) { sel.p = p ? p.id : null; sel.j = null; if (p) sel.boxC = null; if (p) openLeftTab('props'); syncPanel(); mark(); }
+function selectProp(p, mode = 'single') {
+  if (!p) { sel.p = null; sel.ps = []; }
+  else if (mode === 'toggle') {
+    const ids = new Set(sel.ps || []);
+    if (ids.has(p.id)) ids.delete(p.id); else ids.add(p.id);
+    sel.ps = [...ids]; sel.p = ids.has(p.id) ? p.id : (sel.ps[0] || null);
+  } else if (mode === 'add') {
+    sel.ps = [...new Set([...(sel.ps || []), p.id])]; sel.p = p.id;
+  } else {
+    sel.p = p.id; sel.ps = [p.id];
+  }
+  sel.j = null; if (sel.p) sel.boxC = null; if (p) openLeftTab('props'); syncPanel(); mark();
+}
 function openLeftTab(t) { const b = document.querySelector(`#leftTabs button[data-t="${t}"]`); if (b && !b.classList.contains('on')) b.click(); }
 
 // ------------------------------------------------------------
@@ -1035,8 +1064,8 @@ function updateGizmo() {
   gizmo.scale.setScalar(Math.max(dist * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) * 0.17, 0.05));
   gizmo.visible = true; gizmo.updateMatrixWorld(true);
 }
-function selectChar(c) { sel.c = c ? c.id : null; sel.j = null; sel.p = null; sel.boxC = c ? c.id : null; chars.forEach(applyChar); syncPanel(); mark(); }
-function selectJoint(c, name) { sel.c = c.id; sel.j = name; sel.p = null; sel.boxC = null; chars.forEach(applyChar); syncPanel(); mark(); }
+function selectChar(c) { sel.c = c ? c.id : null; sel.j = null; sel.p = null; sel.ps = []; sel.boxC = c ? c.id : null; chars.forEach(applyChar); syncPanel(); mark(); }
+function selectJoint(c, name) { sel.c = c.id; sel.j = name; sel.p = null; sel.ps = []; sel.boxC = null; chars.forEach(applyChar); syncPanel(); mark(); }
 
 // ------------------------------------------------------------
 // 캐릭터 방향 (발 방향 · 상체 방향 · 마주보기)
@@ -1134,7 +1163,7 @@ function render() {
   const { W, H } = stageSize();
   syncCams(); updateCamViz(); updateGizmo();
   chars.forEach(c => { c.aids.rotation.y = feetYaw(c); updateCharOutline(c); });
-  props.forEach(p => { p.outline.visible = p.id === sel.p; });
+  { const ids = new Set((sel.ps || []).length ? sel.ps : (sel.p ? [sel.p] : [])); props.forEach(p => { p.outline.visible = ids.has(p.id); }); }
   camViz.visible = view.mode === 'work';
   const rect = viewRect();
   if (view.mode === 'work') {
@@ -1298,10 +1327,21 @@ stage.addEventListener('pointerdown', e => {
     return;
   }
   if (hit.kind === 'prop') {
-    const p = hit.p; selectProp(p); const pos = p.root.position.clone();
+    const p = hit.p, wasSelected = isPropSelected(p), beforeCount = selectedProps().length;
+    let clickAction = null;
+    if (e.shiftKey) {
+      if (!wasSelected) selectProp(p, 'add');
+      else { sel.j = null; sel.boxC = null; openLeftTab('props'); syncPanel(); mark(); }
+      clickAction = wasSelected ? 'remove' : 'keep';
+    } else if (!wasSelected) selectProp(p);
+    else {
+      sel.p = p.id; sel.j = null; sel.boxC = null; openLeftTab('props'); syncPanel(); mark();
+      if (beforeCount > 1) clickAction = 'single';
+    }
+    const pos = p.root.position.clone(), moving = selectedProps();
     const n = activeCam().getWorldDirection(V3()); n.y = 0; if (n.lengthSq() < 1e-6) n.set(0, 0, 1); n.normalize();
     const pl = e.shiftKey ? new THREE.Plane().setFromNormalAndCoplanarPoint(n, pos) : new THREE.Plane(V3(0, 1, 0), -pos.y), g = rayPlane(pl);
-    if (g) drag = { type: 'propMove', p, plane: pl, grab: g, start: pos, shift: e.shiftKey, moved: false };
+    if (g) drag = { type: 'propMove', p, items: moving.map(q => ({ p:q, start:q.root.position.clone() })), plane: pl, grab: g, shift: e.shiftKey, moved: false, dist:0, clickAction };
     return;
   }
   if (hit.kind === 'arrow') {
@@ -1376,10 +1416,14 @@ stage.addEventListener('pointermove', e => {
     rotateJointWorld(J[c], drag.q0.clone().multiply(cq.invert())); // 손/발의 방향 유지
     drag.moved = true;
   } else if (drag.type === 'propMove') {
-    const g = rayPlane(drag.plane); if (!g) return; const d = g.sub(drag.grab), p = drag.p;
-    if (drag.shift) p.root.position.y = clamp(drag.start.y + d.y, 0, 4);
-    else { p.root.position.x = drag.start.x + d.x; p.root.position.z = drag.start.z + d.z; }
-    applyProp(p); drag.moved = true;
+    drag.dist += Math.abs(dx) + Math.abs(dy); if (drag.dist <= 3) return;
+    const g = rayPlane(drag.plane); if (!g) return; const d = g.sub(drag.grab);
+    for (const it of drag.items) {
+      if (drag.shift) it.p.root.position.y = clamp(it.start.y + d.y, 0, 4);
+      else { it.p.root.position.x = it.start.x + d.x; it.p.root.position.z = it.start.z + d.z; }
+      applyProp(it.p);
+    }
+    drag.moved = true;
   } else if (drag.type === 'turn') {
     const g = rayPlane(drag.plane); if (!g) return; const c = drag.c;
     const target = Math.atan2(g.x - c.root.position.x, g.z - c.root.position.z) + drag.off;
@@ -1411,8 +1455,12 @@ function endDrag() {
   const viaSpace = !!drag.viaSpace;
   if (drag.type === 'ring') ringVis.forEach(v => { v.material.opacity = 0.92; });
   if (drag.moved && !['orbit', 'pan'].includes(drag.type)) commit();
-  if (drag.type === 'propMove') syncProps();
-  if (drag.type === 'orbit' && !drag.moved && !drag.keepSelection && (sel.j || sel.p || sel.boxC)) { sel.j = null; sel.p = null; sel.boxC = null; syncPanel(); }
+  if (drag.type === 'propMove') {
+    if (!drag.moved && drag.clickAction === 'remove') selectProp(drag.p, 'toggle');
+    else if (!drag.moved && drag.clickAction === 'single') selectProp(drag.p);
+    else syncProps();
+  }
+  if (drag.type === 'orbit' && !drag.moved && !drag.keepSelection && (sel.j || sel.p || sel.boxC)) { sel.j = null; sel.p = null; sel.ps = []; sel.boxC = null; syncPanel(); }
   drag = null;
   if (viaSpace) stage.style.cursor = spacePan ? 'grab' : '';
   else if (spacePan) stage.style.cursor = 'grab';
@@ -1590,7 +1638,7 @@ bindOpt('#optGrid', 'grid', applyDisplayAll); bindOpt('#optBody', 'body', applyD
 bindOpt('#optJoints', 'joints', applyDisplayAll); bindOpt('#optGhost', 'ghost', applyDisplayAll); bindOpt('#optCapGrid', 'capGrid');
 // 헤더
 $('#undo').onclick = undo; $('#redo').onclick = redo;
-$('#newScene').onclick = () => { sel.c = null; sel.j = null; sel.p = null; setProps([]); setChars([defaultChar()].map(d => ({ ...d, name: 'A' }))); commit(); toast('새 씬을 만들었습니다. 되돌리기로 복구할 수 있습니다.'); };
+$('#newScene').onclick = () => { sel.c = null; sel.j = null; sel.p = null; sel.ps = []; setProps([]); setChars([defaultChar()].map(d => ({ ...d, name: 'A' }))); commit(); toast('새 씬을 만들었습니다. 되돌리기로 복구할 수 있습니다.'); };
 $('#capCopy').onclick = () => capture('copy'); $('#capPng').onclick = () => capture('png');
 document.querySelectorAll('#viewSeg button').forEach(b => b.onclick = () => setView(b.dataset.v));
 
@@ -1619,15 +1667,19 @@ function setPropCategory(cat) {
 document.querySelectorAll('#propCats button').forEach(b => b.onclick = () => setPropCategory(b.dataset.cat));
 function syncProps() {
   const box = $('#propChips'); if (!box) return; box.innerHTML = '';
+  const chosen = selectedProps(), ids = new Set(chosen.map(p => p.id));
   props.forEach(p => {
-    const b = el('button', 'chip' + (p.id === sel.p ? ' on' : '')); b.textContent = p.name; b.onclick = () => selectProp(p); box.append(b);
+    const b = el('button', 'chip' + (ids.has(p.id) ? ' on' : '')); b.textContent = p.name;
+    b.onclick = e => selectProp(p, e.shiftKey ? 'toggle' : 'single'); box.append(b);
   });
-  $('#propHint').hidden = props.length > 0 && !!selProp();
-  const p = selProp(); $('#propCtl').hidden = !p;
-  if (!p) return;
+  $('#propHint').hidden = chosen.length > 0;
+  $('#propCtl').hidden = chosen.length !== 1;
+  $('#propMultiCtl').hidden = chosen.length <= 1;
+  if (chosen.length > 1) { $('#propMultiCount').textContent = `${chosen.length}개 에셋 선택됨 · 이동과 삭제만 사용할 수 있습니다.`; return; }
+  const p = chosen[0] || null; if (!p) return;
   const set = (id, v, txt) => { const r = $('#' + id); if (document.activeElement !== r) r.value = v; $('#' + id + 'V').textContent = txt; };
   set('pSx', Math.round(p.sc[0] * 100), Math.round(p.sc[0] * 100) + '%'); set('pSy', Math.round(p.sc[1] * 100), Math.round(p.sc[1] * 100) + '%'); set('pSz', Math.round(p.sc[2] * 100), Math.round(p.sc[2] * 100) + '%');
-  set('pYaw', Math.round(wrap180(p.yaw / D2R)), Math.round(wrap180(p.yaw / D2R)) + '°'); set('pLift', Math.round(p.root.position.y * 100), Math.round(p.root.position.y * 100) + ' cm');
+  set('pYaw', Math.round(wrap180(p.yaw / D2R)), Math.round(wrap180(p.yaw / D2R)) + '°'); set('pPitch', Math.round(wrap180(p.pitch / D2R)), Math.round(wrap180(p.pitch / D2R)) + '°'); set('pLift', Math.round(p.root.position.y * 100), Math.round(p.root.position.y * 100) + ' cm');
   document.querySelectorAll('#propColors .sw').forEach(b => b.classList.toggle('on', b.dataset.c === p.color));
 }
 PROP_COLORS.forEach(col => { const b = el('button', 'sw'); b.dataset.c = col; b.style.background = col; b.title = col;
@@ -1640,9 +1692,10 @@ function setPropScale(p, axis, v) {
   if ($('#pLock').checked) { const r = v / p.sc[axis]; p.sc = p.sc.map(x => clamp(x * r, 0.2, 4)); } else p.sc[axis] = clamp(v, 0.2, 4);
 }
 bindProp('#pSx', (p, v) => setPropScale(p, 0, v / 100)); bindProp('#pSy', (p, v) => setPropScale(p, 1, v / 100)); bindProp('#pSz', (p, v) => setPropScale(p, 2, v / 100));
-bindProp('#pYaw', (p, v) => { p.yaw = v * D2R; }); bindProp('#pLift', (p, v) => { p.root.position.y = v / 100; });
-function deleteProp() { const p = selProp(); if (!p) return; disposeProp(p); props = props.filter(q => q !== p); sel.p = null; syncPanel(); mark(); commit(); }
+bindProp('#pYaw', (p, v) => { p.yaw = v * D2R; }); bindProp('#pPitch', (p, v) => { p.pitch = v * D2R; }); bindProp('#pLift', (p, v) => { p.root.position.y = v / 100; });
+function deleteProp() { const list = selectedProps(); if (!list.length) return; const ids = new Set(list.map(p => p.id)); list.forEach(disposeProp); props = props.filter(q => !ids.has(q.id)); sel.p = null; sel.ps = []; syncPanel(); mark(); commit(); }
 $('#propDel').onclick = deleteProp;
+$('#propMultiDel').onclick = deleteProp;
 $('#propDup').onclick = () => {
   const p = selProp(); if (!p || props.length >= MAX_PROPS) return;
   const d = serializeProp(p); delete d.id; delete d.name; d.pos[0] += 0.6; const q = createProp(d); props.push(q); selectProp(q); commit();
@@ -1710,7 +1763,7 @@ const PRESETS = [
 ];
 
 // ------------------------------------------------------------
-// 프리셋 사전 v1.8.1
+// 프리셋 사전 v1.9.0
 // 기존 12개 PRESETS는 빠른 시작용 기본 프리셋으로 유지하고,
 // 사전은 people/tags/pose/layout 데이터만 추가하면 확장할 수 있도록 분리합니다.
 // ------------------------------------------------------------
@@ -1847,7 +1900,7 @@ function presetPropData(spec, anchor, baseYaw) {
   return {
     type: spec.type, name: spec.name, color: spec.color,
     pos: [anchor.x + o.x, anchor.y + o.y, anchor.z + o.z],
-    yaw: baseYaw + finite(spec.yaw, 0), sc: spec.sc,
+    yaw: baseYaw + finite(spec.yaw, 0), pitch: finite(spec.pitch, 0), sc: spec.sc,
   };
 }
 function clearPresetProps() {
@@ -1855,7 +1908,7 @@ function clearPresetProps() {
   if (!made.length) return;
   made.forEach(disposeProp);
   props = props.filter(p => !p.dictPresetAsset);
-  if (sel.p && !props.find(p => p.id === sel.p)) sel.p = null;
+  normalizePropSelection();
   syncProps(); mark();
 }
 function addPresetProps(p, anchor, baseYaw) {
@@ -2323,8 +2376,8 @@ window.addEventListener('keydown', e => {
   else if (!mod && k === 'r') { modes[view.mode] = modes[view.mode] === 'look' ? 'orbit' : 'look'; updateHud(); toast(modes[view.mode] === 'look' ? '드래그 = 제자리 회전' : '드래그 = 대상 중심 회전', 1400); }
   else if (!mod && k === 'c') capture('copy');
   else if (!mod && k === 'p') capture('png');
-  else if ((k === 'delete' || k === 'backspace') && !mod && selProp() && e.target.tagName !== 'INPUT') { e.preventDefault(); deleteProp(); }
-  else if (k === 'escape') { if (!$('#dlg').hidden) { closeDialog(); return; } sel.j = null; sel.p = null; sel.boxC = null; syncPanel(); mark(); }
+  else if ((k === 'delete' || k === 'backspace') && !mod && selectedProps().length && e.target.tagName !== 'INPUT') { e.preventDefault(); deleteProp(); }
+  else if (k === 'escape') { if (!$('#dlg').hidden) { closeDialog(); return; } sel.j = null; sel.p = null; sel.ps = []; sel.boxC = null; syncPanel(); mark(); }
 });
 
 window.addEventListener('keyup', e => {
