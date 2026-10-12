@@ -1208,7 +1208,7 @@ $('#capCopy').onclick = () => capture('copy'); $('#capPng').onclick = () => capt
 document.querySelectorAll('#viewSeg button').forEach(b => b.onclick = () => setView(b.dataset.v));
 
 // ------------------------------------------------------------
-// 이미지에서 포즈 만들기 v2.0.0
+// 이미지에서 포즈 만들기 v2.0.1
 // MediaPipe Pose Landmarker는 최초 사용 시 지연 로딩하고, 이미지 입력 추론은 브라우저 안에서 수행합니다.
 // ------------------------------------------------------------
 const POSE_MP_VERSION = '1.1.0';
@@ -1245,11 +1245,24 @@ function closePoseImageTool() { $('#poseImageTool').hidden = true; }
 $('#poseImageBtn').onclick = openPoseImageTool;
 $('#poseImgClose').onclick = closePoseImageTool;
 $('#poseImgPick').onclick = () => $('#poseImgFile').click();
+const poseImgWrap = $('#poseImgCanvasWrap');
+if (window.ResizeObserver) new ResizeObserver(() => { if (!$('#poseImageTool').hidden && poseImg.img) fitPoseImageCanvas(); }).observe(poseImgWrap);
+else window.addEventListener('resize', () => { if (!$('#poseImageTool').hidden && poseImg.img) fitPoseImageCanvas(); });
 
 function clonePosePoints(a) { return Array.isArray(a) ? a.map(p => p ? ({ ...p }) : p) : null; }
 function poseImageCanvasSize(img) {
   const maxEdge = 1500, w0 = Math.max(1, img.naturalWidth || img.width || 960), h0 = Math.max(1, img.naturalHeight || img.height || 720);
   const k = Math.min(1, maxEdge / Math.max(w0, h0)); return [Math.max(1, Math.round(w0*k)), Math.max(1, Math.round(h0*k))];
+}
+function fitPoseImageCanvas() {
+  if (!poseImg.img) return;
+  const wrap = $('#poseImgCanvasWrap');
+  const rw = Math.max(1, wrap.clientWidth), rh = Math.max(1, wrap.clientHeight);
+  const ar = Math.max(1, poseCanvas.width) / Math.max(1, poseCanvas.height);
+  let dw = rw, dh = dw / ar;
+  if (dh > rh) { dh = rh; dw = dh * ar; }
+  poseCanvas.style.width = Math.max(1, Math.floor(dw)) + 'px';
+  poseCanvas.style.height = Math.max(1, Math.floor(dh)) + 'px';
 }
 function drawPoseImage() {
   const ctx = poseCtx;
@@ -1258,6 +1271,7 @@ function drawPoseImage() {
   }
   const [w,h] = poseImageCanvasSize(poseImg.img);
   if (poseCanvas.width !== w || poseCanvas.height !== h) { poseCanvas.width = w; poseCanvas.height = h; }
+  fitPoseImageCanvas();
   ctx.clearRect(0,0,w,h); ctx.drawImage(poseImg.img,0,0,w,h); $('#poseImgEmpty').hidden = true;
   if (!poseImg.landmarks) return;
   ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
@@ -1543,7 +1557,7 @@ const PRESETS = [
 ];
 
 // ------------------------------------------------------------
-// 프리셋 사전 v2.0.0
+// 프리셋 사전 v2.0.1
 // 기존 12개 PRESETS는 빠른 시작용 기본 프리셋으로 유지하고,
 // 사전은 people/tags/pose/layout 데이터만 추가하면 확장할 수 있도록 분리합니다.
 // ------------------------------------------------------------
