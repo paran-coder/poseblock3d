@@ -71,3 +71,21 @@
 - [x] JS 구문 검사
 - [x] 단일 HTML 빌드
 - [x] ZIP 무결성 검사
+
+## v2.0.0 이미지에서 포즈 만들기
+- [x] 기능 범위/비범위 문서화
+- [x] 헤더 `이미지 포즈` 버튼 및 전체 화면 분석 UI 추가
+- [x] 이미지 업로드/교체/초기화 흐름 추가
+- [x] MediaPipe Tasks Vision 런타임을 지연 로딩하고 Pose Landmarker Full 초기화
+- [x] 1인 이미지 분석 및 감지 실패 처리
+- [x] 주요 관절 스켈레톤 캔버스 렌더링
+- [x] 관절점 포인터 드래그 보정
+- [x] 감지 원본으로 되돌리기
+- [x] 2D 수정값 + MediaPipe world depth를 PoseBlock 3D 목표점으로 변환
+- [x] 목표점에서 PoseBlock 관절 quaternion 생성
+- [x] 현재 선택 캐릭터에 적용 + 되돌리기 히스토리 커밋
+- [x] 기존 프리셋/에셋/카메라 기능 정적 diff 회귀 점검
+- [x] node --check 통과
+- [x] 단일 HTML 빌드 성공
+- [x] ZIP 무결성 검사
+- [ ] 실제 브라우저에서 MediaPipe 모델 다운로드 → 이미지 감지 → 드래그 → 3D 적용 E2E 확인 (현재 빌드 환경에서는 외부 CDN/WebGL 실행 검증 불가)

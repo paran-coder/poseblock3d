@@ -201,3 +201,28 @@ kbd{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;background:#eef0f3;bor
   .dict-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
   .pair-role-box{grid-template-columns:1fr}
 }
+
+/* v2.0.0 이미지에서 포즈 만들기 */
+#poseImageTool{
+  position:fixed;left:0;right:0;top:54px;bottom:0;z-index:24;background:var(--bg);overflow:auto;padding:20px;
+}
+.poseimg-shell{width:min(1240px,100%);margin:0 auto;display:flex;flex-direction:column;gap:16px;min-height:100%}
+.poseimg-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.poseimg-head h2{margin:0;font-size:22px;letter-spacing:-.03em}
+.poseimg-head p{margin:5px 0 0;color:var(--mute);font-size:13px}
+.poseimg-body{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start;min-height:0}
+.poseimg-view{border:1px solid var(--line);border-radius:14px;background:#171a20;padding:12px;min-height:520px;display:grid;place-items:center}
+.poseimg-canvas-wrap{position:relative;width:100%;height:min(72vh,760px);display:grid;place-items:center;overflow:hidden;border-radius:9px;background:#0f1115}
+#poseImgCanvas{display:block;max-width:100%;max-height:100%;width:auto;height:auto;touch-action:none;user-select:none;cursor:default}
+.poseimg-empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;color:#aeb6c2;font-size:13px;pointer-events:none}
+.poseimg-side{background:transparent!important;padding:0!important;overflow:visible!important;display:flex;flex-direction:column;gap:12px}
+.poseimg-status{border:1px solid var(--line);border-radius:10px;background:#fff;padding:10px 12px;font-size:12.5px;color:var(--ink);line-height:1.5}
+.poseimg-status.busy{color:var(--acc);background:var(--acc-soft);border-color:#cbd5f5}
+.poseimg-status.err{color:var(--danger);background:#fff6f6;border-color:#f0caca}
+.poseimg-privacy{margin:0;color:var(--mute);font-size:11.5px;line-height:1.55;padding:0 2px}
+@media (max-width:860px){
+  #poseImageTool{padding:14px}
+  .poseimg-head{flex-direction:column}.poseimg-head .btn{align-self:flex-end}
+  .poseimg-body{grid-template-columns:1fr}.poseimg-view{min-height:360px}.poseimg-canvas-wrap{height:min(62vh,620px)}
+}
+

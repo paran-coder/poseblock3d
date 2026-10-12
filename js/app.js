@@ -1,4 +1,4 @@
-// PoseBlock 3D 앱 전체 로직 (Three.js 장면, 24관절 캐릭터, 에셋, 카메라, 캡처, 저장, 공유, 프리셋 사전)
+// PoseBlock 3D 앱 전체 로직 (Three.js 장면, 24관절 캐릭터, 에셋, 카메라, 캡처, 저장, 공유, 프리셋 사전, 이미지 포즈)
 (() => {
 'use strict';
 
@@ -1207,6 +1207,221 @@ $('#newScene').onclick = () => { sel.c = null; sel.j = null; sel.p = null; sel.p
 $('#capCopy').onclick = () => capture('copy'); $('#capPng').onclick = () => capture('png');
 document.querySelectorAll('#viewSeg button').forEach(b => b.onclick = () => setView(b.dataset.v));
 
+// ------------------------------------------------------------
+// 이미지에서 포즈 만들기 v2.0.0
+// MediaPipe Pose Landmarker는 최초 사용 시 지연 로딩하고, 이미지 입력 추론은 브라우저 안에서 수행합니다.
+// ------------------------------------------------------------
+const POSE_MP_VERSION = '1.1.0';
+const POSE_MP_MODULE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${POSE_MP_VERSION}/+esm`;
+const POSE_MP_WASM = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${POSE_MP_VERSION}/wasm`;
+const POSE_MP_MODEL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task';
+const POSE_EDIT_IDS = [0, 11,12,13,14,15,16,23,24,25,26,27,28,31,32];
+const POSE_POINT_NAMES = {
+  0:'코',11:'왼쪽 어깨',12:'오른쪽 어깨',13:'왼쪽 팔꿈치',14:'오른쪽 팔꿈치',15:'왼쪽 손목',16:'오른쪽 손목',
+  23:'왼쪽 골반',24:'오른쪽 골반',25:'왼쪽 무릎',26:'오른쪽 무릎',27:'왼쪽 발목',28:'오른쪽 발목',31:'왼쪽 발끝',32:'오른쪽 발끝'
+};
+const POSE_DRAW_LINKS = [
+  [11,12],[11,13],[13,15],[12,14],[14,16],
+  [11,23],[12,24],[23,24],[23,25],[25,27],[27,31],[24,26],[26,28],[28,32]
+];
+const poseImg = {
+  img:null, url:'', landmarks:null, world:null, original:null, originalWorld:null,
+  landmarker:null, loading:null, drag:-1, hover:-1, analyzing:false
+};
+const poseCanvas = $('#poseImgCanvas'), poseCtx = poseCanvas.getContext('2d');
+
+function setPoseImgStatus(msg, kind = '') {
+  const b = $('#poseImgStatus'); b.textContent = msg; b.classList.toggle('busy', kind === 'busy'); b.classList.toggle('err', kind === 'err');
+}
+function syncPoseImgTarget() {
+  const s = $('#poseImgTarget'), prev = s.value || sel.c; s.innerHTML = '';
+  chars.forEach(c => { const o = el('option'); o.value = c.id; o.textContent = `${c.name} · ${c.height}cm`; s.append(o); });
+  if (chars.some(c => c.id === prev)) s.value = prev; else if (selChar()) s.value = selChar().id;
+}
+function openPoseImageTool() {
+  syncPoseImgTarget(); $('#poseImageTool').hidden = false; drawPoseImage();
+}
+function closePoseImageTool() { $('#poseImageTool').hidden = true; }
+$('#poseImageBtn').onclick = openPoseImageTool;
+$('#poseImgClose').onclick = closePoseImageTool;
+$('#poseImgPick').onclick = () => $('#poseImgFile').click();
+
+function clonePosePoints(a) { return Array.isArray(a) ? a.map(p => p ? ({ ...p }) : p) : null; }
+function poseImageCanvasSize(img) {
+  const maxEdge = 1500, w0 = Math.max(1, img.naturalWidth || img.width || 960), h0 = Math.max(1, img.naturalHeight || img.height || 720);
+  const k = Math.min(1, maxEdge / Math.max(w0, h0)); return [Math.max(1, Math.round(w0*k)), Math.max(1, Math.round(h0*k))];
+}
+function drawPoseImage() {
+  const ctx = poseCtx;
+  if (!poseImg.img) {
+    ctx.clearRect(0,0,poseCanvas.width,poseCanvas.height); $('#poseImgEmpty').hidden = false; return;
+  }
+  const [w,h] = poseImageCanvasSize(poseImg.img);
+  if (poseCanvas.width !== w || poseCanvas.height !== h) { poseCanvas.width = w; poseCanvas.height = h; }
+  ctx.clearRect(0,0,w,h); ctx.drawImage(poseImg.img,0,0,w,h); $('#poseImgEmpty').hidden = true;
+  if (!poseImg.landmarks) return;
+  ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.strokeStyle='rgba(62,99,221,.92)'; ctx.lineWidth=Math.max(2, w/420);
+  for (const [a,b] of POSE_DRAW_LINKS) {
+    const A=poseImg.landmarks[a], B=poseImg.landmarks[b]; if (!A || !B) continue;
+    ctx.beginPath(); ctx.moveTo(A.x*w,A.y*h); ctx.lineTo(B.x*w,B.y*h); ctx.stroke();
+  }
+  for (const i of POSE_EDIT_IDS) {
+    const p=poseImg.landmarks[i]; if (!p) continue; const x=p.x*w, y=p.y*h, hot=i===poseImg.drag||i===poseImg.hover;
+    ctx.beginPath(); ctx.arc(x,y,hot?9:7,0,Math.PI*2); ctx.fillStyle=hot?'#ffffff':'#e8edfd'; ctx.fill();
+    ctx.lineWidth=hot?4:3; ctx.strokeStyle=hot?'#3152c6':'#3e63dd'; ctx.stroke();
+  }
+  if (poseImg.hover >= 0 && poseImg.landmarks[poseImg.hover]) {
+    const p=poseImg.landmarks[poseImg.hover], text=POSE_POINT_NAMES[poseImg.hover]||'관절';
+    ctx.font='600 13px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'; const tw=ctx.measureText(text).width;
+    const x=clamp(p.x*w+12,4,w-tw-16), y=clamp(p.y*h-28,4,h-25);
+    ctx.fillStyle='rgba(20,23,28,.86)'; ctx.fillRect(x,y,tw+12,22); ctx.fillStyle='#fff'; ctx.fillText(text,x+6,y+15);
+  }
+  ctx.restore();
+}
+function poseCanvasPoint(e) {
+  const r=poseCanvas.getBoundingClientRect(); return { x:(e.clientX-r.left)*poseCanvas.width/Math.max(r.width,1), y:(e.clientY-r.top)*poseCanvas.height/Math.max(r.height,1) };
+}
+function nearestPosePoint(e, radius=18) {
+  if (!poseImg.landmarks) return -1; const p=poseCanvasPoint(e); let best=-1, bd=radius*radius;
+  for (const i of POSE_EDIT_IDS) { const q=poseImg.landmarks[i]; if (!q) continue; const dx=q.x*poseCanvas.width-p.x, dy=q.y*poseCanvas.height-p.y, d=dx*dx+dy*dy; if (d<bd) {bd=d;best=i;} }
+  return best;
+}
+poseCanvas.addEventListener('pointerdown', e => {
+  const i=nearestPosePoint(e); if (i<0) return; poseImg.drag=i; poseImg.hover=i; poseCanvas.setPointerCapture(e.pointerId); poseCanvas.style.cursor='grabbing'; e.preventDefault(); drawPoseImage();
+});
+poseCanvas.addEventListener('pointermove', e => {
+  if (!poseImg.landmarks) return;
+  if (poseImg.drag>=0) {
+    const p=poseCanvasPoint(e), q=poseImg.landmarks[poseImg.drag]; q.x=clamp(p.x/poseCanvas.width,0,1); q.y=clamp(p.y/poseCanvas.height,0,1);
+    drawPoseImage(); return;
+  }
+  const h=nearestPosePoint(e); if (h!==poseImg.hover) { poseImg.hover=h; drawPoseImage(); }
+  poseCanvas.style.cursor=h>=0?'grab':'default';
+});
+function endPosePointDrag(e) { if (poseImg.drag<0) return; poseImg.drag=-1; try{poseCanvas.releasePointerCapture(e.pointerId);}catch(_e){} poseCanvas.style.cursor=poseImg.hover>=0?'grab':'default'; drawPoseImage(); }
+poseCanvas.addEventListener('pointerup',endPosePointDrag); poseCanvas.addEventListener('pointercancel',endPosePointDrag); poseCanvas.addEventListener('pointerleave',e=>{if(poseImg.drag<0&&poseImg.hover>=0){poseImg.hover=-1;drawPoseImage();}});
+
+async function getPoseLandmarker() {
+  if (poseImg.landmarker) return poseImg.landmarker;
+  if (poseImg.loading) return poseImg.loading;
+  poseImg.loading = (async () => {
+    const mp = await import(POSE_MP_MODULE);
+    const vision = await mp.FilesetResolver.forVisionTasks(POSE_MP_WASM);
+    const options = {
+      baseOptions:{ modelAssetPath:POSE_MP_MODEL, delegate:'GPU' }, runningMode:'IMAGE', numPoses:1,
+      minPoseDetectionConfidence:.5, minPosePresenceConfidence:.5, minTrackingConfidence:.5, outputSegmentationMasks:false
+    };
+    try { return await mp.PoseLandmarker.createFromOptions(vision, options); }
+    catch (gpuError) {
+      options.baseOptions = { modelAssetPath:POSE_MP_MODEL, delegate:'CPU' };
+      return await mp.PoseLandmarker.createFromOptions(vision, options);
+    }
+  })();
+  try { poseImg.landmarker = await poseImg.loading; return poseImg.landmarker; }
+  finally { poseImg.loading = null; }
+}
+async function analyzePoseImage() {
+  if (!poseImg.img || poseImg.analyzing) return;
+  poseImg.analyzing=true; $('#poseImgAnalyze').disabled=true; $('#poseImgApply').disabled=true; $('#poseImgReset').disabled=true;
+  setPoseImgStatus('포즈 분석 모델을 준비하고 있습니다. 처음 한 번은 모델 다운로드로 시간이 걸릴 수 있습니다.', 'busy');
+  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+  try {
+    const landmarker=await getPoseLandmarker(); setPoseImgStatus('이미지에서 관절을 분석하고 있습니다…','busy');
+    await new Promise(r=>requestAnimationFrame(r));
+    const result=landmarker.detect(poseImg.img), lm=result && result.landmarks && result.landmarks[0], wm=result && result.worldLandmarks && result.worldLandmarks[0];
+    if (!lm || lm.length<33) throw new Error('사람의 전신 관절을 찾지 못했습니다.');
+    poseImg.landmarks=clonePosePoints(lm); poseImg.original=clonePosePoints(lm);
+    poseImg.world=clonePosePoints(wm && wm.length>=33 ? wm : lm); poseImg.originalWorld=clonePosePoints(poseImg.world);
+    poseImg.hover=-1; poseImg.drag=-1; drawPoseImage();
+    $('#poseImgApply').disabled=false; $('#poseImgReset').disabled=false;
+    setPoseImgStatus('관절을 감지했습니다. 잘못 잡힌 원형 관절점을 드래그해 수정한 뒤 포즈를 적용하세요.');
+  } catch (e) {
+    poseImg.landmarks=poseImg.world=poseImg.original=poseImg.originalWorld=null; drawPoseImage();
+    setPoseImgStatus((e && e.message ? e.message : '포즈 분석에 실패했습니다.')+' 인터넷 연결과 이미지에 사람 1명이 충분히 보이는지 확인해 주세요.','err');
+  } finally { poseImg.analyzing=false; $('#poseImgAnalyze').disabled=!poseImg.img; }
+}
+$('#poseImgAnalyze').onclick=analyzePoseImage;
+$('#poseImgReset').onclick=()=>{
+  if (!poseImg.original) return; poseImg.landmarks=clonePosePoints(poseImg.original); poseImg.world=clonePosePoints(poseImg.originalWorld); poseImg.hover=-1; drawPoseImage(); setPoseImgStatus('감지 직후 관절 위치로 되돌렸습니다.');
+};
+$('#poseImgFile').addEventListener('change', e => {
+  const f=e.target.files && e.target.files[0]; e.target.value=''; if (!f) return;
+  if (!/^image\//.test(f.type)) { setPoseImgStatus('이미지 파일을 선택해 주세요.','err'); return; }
+  if (poseImg.url) URL.revokeObjectURL(poseImg.url); poseImg.url=URL.createObjectURL(f);
+  const img=new Image(); img.onload=()=>{poseImg.img=img;poseImg.landmarks=poseImg.world=poseImg.original=poseImg.originalWorld=null;drawPoseImage();$('#poseImgAnalyze').disabled=false;setPoseImgStatus('이미지를 불러왔습니다. 자동으로 관절을 분석합니다.','busy');analyzePoseImage();};
+  img.onerror=()=>setPoseImgStatus('이미지를 읽을 수 없습니다. 다른 이미지 파일을 선택해 주세요.','err'); img.src=poseImg.url;
+});
+
+function poseAvg2(a,b) { return {x:(a.x+b.x)/2,y:(a.y+b.y)/2,z:((a.z||0)+(b.z||0))/2}; }
+function poseAvgV(a,b) { return a.clone().add(b).multiplyScalar(.5); }
+function poseWorldV(i) {
+  const w=poseImg.world && poseImg.world[i]; return w ? V3(finite(w.x,0),finite(w.y,0),finite(w.z,0)) : V3();
+}
+function poseImageTargets() {
+  const L=poseImg.landmarks; if (!L || L.length<33) return null;
+  const aspect=(poseImg.img && (poseImg.img.naturalWidth||poseImg.img.width) / Math.max(1,(poseImg.img.naturalHeight||poseImg.img.height))) || 1;
+  const hipN=poseAvg2(L[23],L[24]), shN=poseAvg2(L[11],L[12]);
+  const hipW=poseAvgV(poseWorldV(23),poseWorldV(24)), shW=poseAvgV(poseWorldV(11),poseWorldV(12));
+  const screenTorso=Math.hypot((shN.x-hipN.x)*aspect, shN.y-hipN.y), worldTorso=Math.max(.12,shW.distanceTo(hipW));
+  const xyScale=clamp(worldTorso/Math.max(screenTorso,.04),.35,4.0), z0=hipW.z;
+  const p=i=>{
+    const a=L[i], w=poseImg.world && poseImg.world[i]; if(!a)return V3();
+    const wz=w&&Number.isFinite(w.z)?w.z:(Number.isFinite(a.z)?a.z:0);
+    return V3((a.x-hipN.x)*aspect*xyScale, -(a.y-hipN.y)*xyScale, -(wz-z0));
+  };
+  const t={}; for(let i=0;i<33;i++)t[i]=p(i); return t;
+}
+function aimPoseJoint(c,name,localAxis,worldDir) {
+  if (!c.joints[name] || !worldDir || worldDir.lengthSq()<1e-9) return;
+  c.root.updateMatrixWorld(true); const parentQ=new THREE.Quaternion(); c.joints[name].parent.getWorldQuaternion(parentQ);
+  const d=worldDir.clone().normalize().applyQuaternion(parentQ.invert());
+  c.joints[name].quaternion.setFromUnitVectors(localAxis.clone().normalize(),d.normalize()); c.root.updateMatrixWorld(true);
+}
+function setPosePelvisBasis(c,xWorld,yWorld) {
+  const x=xWorld.clone(); if(x.lengthSq()<1e-8)return; x.normalize();
+  const y0=yWorld.clone(); if(y0.lengthSq()<1e-8)return; y0.normalize();
+  const z=V3().crossVectors(x,y0); if(z.lengthSq()<1e-8)return; z.normalize();
+  const y=V3().crossVectors(z,x).normalize(), m=new THREE.Matrix4().makeBasis(x,y,z), worldQ=new THREE.Quaternion().setFromRotationMatrix(m);
+  const parentQ=new THREE.Quaternion(); c.joints.pelvis.parent.getWorldQuaternion(parentQ);
+  c.joints.pelvis.quaternion.copy(parentQ.invert().multiply(worldQ)); c.root.updateMatrixWorld(true);
+}
+function applyImagePoseToChar(c) {
+  const T=poseImageTargets(); if(!c||!T)return false;
+  const mid=(a,b)=>poseAvgV(T[a],T[b]), hip=mid(23,24), shoulder=mid(11,12), ear=mid(7,8), nose=T[0];
+  const torso=shoulder.clone().sub(hip); if(torso.lengthSq()<1e-7)return false;
+  JN.forEach(n=>c.joints[n].quaternion.identity()); c.yaw=0; c.root.position.y=0; applyChar(c);
+  const hipX=T[23].clone().sub(T[24]); if(hipX.lengthSq()<1e-7)hipX.copy(T[11]).sub(T[12]); setPosePelvisBasis(c,hipX,torso);
+  const s1=hip.clone().lerp(shoulder,.25), s2=hip.clone().lerp(shoulder,.5), s3=hip.clone().lerp(shoulder,.76), neckT=shoulder.clone(), headT=ear.clone().lerp(nose,.2);
+  aimPoseJoint(c,'spineLow',V3(0,1,0),s2.clone().sub(s1));
+  aimPoseJoint(c,'spineMid',V3(0,1,0),s3.clone().sub(s2));
+  aimPoseJoint(c,'spineUp',V3(0,1,0),neckT.clone().sub(s3));
+  aimPoseJoint(c,'neck',V3(0,1,0),headT.clone().sub(neckT));
+  const face=nose.clone().sub(ear); if(face.lengthSq()>1e-7)aimPoseJoint(c,'head',V3(0,0,1),face);
+  aimPoseJoint(c,'clavicleL',V3(1,0,0),T[11].clone().sub(shoulder));
+  aimPoseJoint(c,'clavicleR',V3(-1,0,0),T[12].clone().sub(shoulder));
+  aimPoseJoint(c,'shoulderL',V3(0,-1,0),T[13].clone().sub(T[11]));
+  aimPoseJoint(c,'elbowL',V3(0,-1,0),T[15].clone().sub(T[13]));
+  aimPoseJoint(c,'wristL',V3(0,-1,0),poseAvgV(T[17],T[19]).sub(T[15]));
+  aimPoseJoint(c,'shoulderR',V3(0,-1,0),T[14].clone().sub(T[12]));
+  aimPoseJoint(c,'elbowR',V3(0,-1,0),T[16].clone().sub(T[14]));
+  aimPoseJoint(c,'wristR',V3(0,-1,0),poseAvgV(T[18],T[20]).sub(T[16]));
+  aimPoseJoint(c,'hipL',V3(0,-1,0),T[25].clone().sub(T[23]));
+  aimPoseJoint(c,'kneeL',V3(0,-1,0),T[27].clone().sub(T[25]));
+  aimPoseJoint(c,'ankleL',V3(0,-.07,.15),T[31].clone().sub(T[27]));
+  aimPoseJoint(c,'hipR',V3(0,-1,0),T[26].clone().sub(T[24]));
+  aimPoseJoint(c,'kneeR',V3(0,-1,0),T[28].clone().sub(T[26]));
+  aimPoseJoint(c,'ankleR',V3(0,-.07,.15),T[32].clone().sub(T[28]));
+  c.root.updateMatrixWorld(true);
+  let minY=Infinity, v=V3(); for(const n of JN){c.joints[n].getWorldPosition(v);minY=Math.min(minY,v.y);} if(Number.isFinite(minY)&&minY<0)c.root.position.y=clamp(c.root.position.y-minY,-1.2,3);
+  applyChar(c); return true;
+}
+$('#poseImgApply').onclick=()=>{
+  if(!poseImg.landmarks)return; const c=chars.find(x=>x.id===$('#poseImgTarget').value)||selChar()||chars[0]; if(!c)return;
+  if(!applyImagePoseToChar(c)){setPoseImgStatus('포즈를 3D 관절로 변환하지 못했습니다. 다른 이미지를 사용해 주세요.','err');return;}
+  selectChar(c); commit(); closePoseImageTool(); toast(`${c.name}에 이미지 포즈를 적용했습니다. 깊이와 손·발 방향은 필요하면 3D 화면에서 미세 조정하세요.`,4200);
+};
+
 // 에셋 패널
 // 일반 실행에서는 정적 WebP만 사용한다. 단일 HTML 빌드는 build-single.mjs가 같은 이미지를 data URI로 주입한다.
 const PROP_THUMB_VERSION = '1.4.0';
@@ -1328,7 +1543,7 @@ const PRESETS = [
 ];
 
 // ------------------------------------------------------------
-// 프리셋 사전 v1.9.1
+// 프리셋 사전 v2.0.0
 // 기존 12개 PRESETS는 빠른 시작용 기본 프리셋으로 유지하고,
 // 사전은 people/tags/pose/layout 데이터만 추가하면 확장할 수 있도록 분리합니다.
 // ------------------------------------------------------------
