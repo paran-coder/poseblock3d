@@ -226,3 +226,9 @@ kbd{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;background:#eef0f3;bor
   .poseimg-body{grid-template-columns:1fr}.poseimg-view{min-height:360px}.poseimg-canvas-wrap{height:min(62vh,620px)}
 }
 
+
+/* v2.1.4 2인 이미지 포즈: 이미지 카드 안에서 1인/2인 탭 전환 */
+.poseimg-image-card{padding-top:10px}
+.poseimg-tabs{display:grid;grid-template-columns:1fr 1fr;width:100%;margin:0 0 12px}
+.poseimg-tabs button{min-width:0}
+#posePairCanvas{display:block;width:auto;height:auto;max-width:none;max-height:none;touch-action:none;user-select:none;cursor:default}

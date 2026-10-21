@@ -1,4 +1,4 @@
-# PoseBlock 3D v1.9.0 Checklist
+# PoseBlock 3D v2.1.4 Checklist
 
 ## 작업 전
 - [x] v1.7.5 기준본 확인
@@ -89,3 +89,73 @@
 - [x] 단일 HTML 빌드 성공
 - [x] ZIP 무결성 검사
 - [ ] 실제 브라우저에서 MediaPipe 모델 다운로드 → 이미지 감지 → 드래그 → 3D 적용 E2E 확인 (현재 빌드 환경에서는 외부 CDN/WebGL 실행 검증 불가)
+
+
+## v2.1.1 2인 이미지 포즈 분리 리팩터링
+- [x] v2.0.1을 기준으로 새 작업본 생성
+- [x] v2.0.1 1인 이미지 처리 JS 블록 byte-level 동일성 확인
+- [x] 1인/2인 탭 UI 추가
+- [x] 2인 전용 상태 객체/캔버스/파일 입력 추가
+- [x] 2인 전용 MediaPipe `numPoses=2` 인스턴스 추가
+- [x] A/B 스켈레톤 별도 표시 및 관절점 드래그 보정
+- [x] A/B 대상 캐릭터 선택 및 B 자동 추가
+- [x] 각 인물별 독립 3D 포즈 변환
+- [x] 이미지 기반 상대 X 간격 + 보수적 Z 간격 적용
+- [x] 기존 프리셋/에셋/캐릭터/카메라/저장/공유 JS 로직 무변경 비교
+- [x] JS 구문 검사
+- [x] DOM ID 중복/필수 pair ID 검사
+- [x] 단일 HTML 빌드
+- [x] ZIP 무결성 검사
+- [ ] 실제 배포 브라우저에서 2인 사진 여러 장 E2E 테스트
+
+
+## v2.1.3 2인 이미지 인식 개선
+- [x] v2.0.1 1인 이미지 처리 JS 블록 byte-level 동일성 재확인
+- [x] 독립 인원 선택 버튼 제거, 이미지 카드 내부 1인/2인 탭으로 이동
+- [x] MediaPipe Object Detector person 영역 검출 추가
+- [x] A/B 사람 영역 각각을 기존 `numPoses=1` Pose Landmarker로 별도 분석
+- [x] 여러 crop padding 후보를 평가해 대상 인물과 가장 잘 맞는 결과 선택
+- [x] crop 랜드마크를 원본 이미지 좌표로 재매핑
+- [x] 영역 검출 실패 시에만 `numPoses=2` fallback 유지
+- [x] A/B 3D 변환에 기존 v2.0.1 `applyImagePoseToChar()` 직접 재사용
+- [x] 감지된 사람 높이 + 원본 골반 중심 간격 기반 상대 X 거리 계산
+- [x] JS 구문 검사 및 DOM ID 중복 검사
+- [x] 단일 HTML 빌드
+- [x] ZIP 무결성 검사
+- [ ] 실제 배포 브라우저에서 겹침/크기차/원근이 있는 2인 사진 여러 장 E2E 테스트
+
+
+## v2.1.3 확인 항목
+- [x] v2.0.1 1인 이미지 처리 블록 byte-level 동일
+- [x] 2인 분석이 기존 1인 PoseLandmarker 인스턴스를 사용하지 않음
+- [x] 2인 rough detection → person별 refinement 경로 확인
+- [x] rough detection 실패 시 Object Detector fallback 확인
+- [x] 연속 이미지 선택 시 run token으로 오래된 결과 폐기
+- [x] `다시 분석` 반복 호출 가능한 상태 구조 확인
+- [x] JS 구문 검사
+- [x] DOM id 중복 검사
+- [x] 단일 HTML 빌드
+- [x] ZIP 무결성 검사
+
+> 현재 실행 환경에서는 외부 MediaPipe CDN/모델을 불러오는 실제 브라우저 E2E를 수행할 수 없어, 2인 사진의 실감지 품질과 두 번째 연속 분석은 배포/로컬 브라우저에서 최종 확인이 필요합니다.
+
+
+## v2.1.4 A/B 인물 분리 검증
+- [x] Object Detector person box를 2인 분석의 우선 경로로 변경
+- [x] A/B box를 화면 좌우 기준으로 고정
+- [x] 사람 box 후보 쌍의 IoU/중심거리 기반 중복 box 제거
+- [x] ROI 내부 torso center 및 어깨/골반 핵심점 hard validation 추가
+- [x] 좁은 crop → 중간 crop → 넓은 crop 재시도
+- [x] A/B 동일 인물 중복 판정 및 잘못된 B 스켈레톤 차단
+- [x] Object Detector 실패 시에만 rough `numPoses=2` ROI fallback
+- [x] 부분 실패 시 잘못된 대체 스켈레톤을 표시하지 않음
+- [ ] 실제 배포 브라우저에서 사용자 실패 사례와 유사한 2인 사진 재검증
+
+### v2.1.4 정적 검증
+- [x] JS 구문 검사 통과
+- [x] DOM ID 중복 없음 / 필수 pair ID 존재
+- [x] v2.0.1 1인 이미지 처리 블록 byte-level 동일
+- [x] v2.1.3 대비 2인 블록 밖 app.js prefix/suffix 동일
+- [x] Object Detector 우선 → rough fallback 순서 확인
+- [x] 단일 HTML 빌드 완료
+- [ ] 실제 브라우저에서 동일 인물 중복 실패 사례 재테스트

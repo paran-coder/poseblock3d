@@ -1436,6 +1436,358 @@ $('#poseImgApply').onclick=()=>{
   selectChar(c); commit(); closePoseImageTool(); toast(`${c.name}에 이미지 포즈를 적용했습니다. 깊이와 손·발 방향은 필요하면 3D 화면에서 미세 조정하세요.`,4200);
 };
 
+// ------------------------------------------------------------
+// 2인 이미지 포즈 v2.1.4
+// 기존 v2.0.1 1인 이미지 처리 코드는 위 블록을 그대로 사용합니다.
+// 2인 분석은 전용 task만 사용하며 1인용 poseImg.landmarker를 공유하지 않습니다.
+// Object Detector로 서로 다른 두 사람의 ROI를 먼저 고정한 뒤 각 ROI를 numPoses:1로 정밀 분석합니다.
+// 사람 영역 검출이 부족할 때만 전체 이미지 numPoses:2 결과를 ROI 공급용 fallback으로 사용합니다.
+// ------------------------------------------------------------
+const POSE_PAIR_COLORS = [
+  { line:'rgba(229,72,77,.94)', point:'#fdebed', stroke:'#e5484d', hot:'#b42328' },
+  { line:'rgba(62,99,221,.94)', point:'#e8edfd', stroke:'#3e63dd', hot:'#3152c6' }
+];
+const POSE_PAIR_OBJECT_MODEL = 'https://storage.googleapis.com/mediapipe-tasks/object_detector/efficientdet_lite0_uint8.tflite';
+const posePair = {
+  img:null, url:'', people:[], originals:[], boxes:[], drag:null, hover:null, analyzing:false, runSeq:0,
+  roughLandmarker:null, roughLoading:null, refineLandmarker:null, refineLoading:null,
+  detector:null, detectorLoading:null
+};
+const posePairCanvas = $('#posePairCanvas'), posePairCtx = posePairCanvas.getContext('2d');
+const posePairWrap = $('#posePairCanvasWrap');
+
+function setPoseImageMode(mode) {
+  const pair = mode === 'pair';
+  document.querySelectorAll('.poseimg-tabs button').forEach(b => b.classList.toggle('on', b.dataset.mode === (pair ? 'pair' : 'single')));
+  $('#poseImgSinglePane').hidden = pair;
+  $('#posePairPane').hidden = !pair;
+  if (pair) { syncPosePairTargets(); drawPosePairImage(); if (posePair.img) fitPosePairCanvas(); }
+  else { syncPoseImgTarget(); drawPoseImage(); if (poseImg.img) fitPoseImageCanvas(); }
+}
+document.querySelectorAll('.poseimg-tabs button').forEach(b => b.onclick = () => setPoseImageMode(b.dataset.mode));
+$('#poseImageBtn').addEventListener('click', () => setPoseImageMode('single'));
+
+function setPosePairStatus(msg, kind='') {
+  const b=$('#posePairStatus'); b.textContent=msg; b.classList.toggle('busy',kind==='busy'); b.classList.toggle('err',kind==='err');
+}
+function clonePosePairPerson(p) {
+  return p ? { landmarks:clonePosePoints(p.landmarks), world:clonePosePoints(p.world), box:p.box?{...p.box}:null } : null;
+}
+function posePairCenterX(person) {
+  const L=person&&person.landmarks; if(!L)return .5;
+  const pts=[L[23],L[24],L[11],L[12]].filter(Boolean); if(!pts.length)return .5;
+  return pts.reduce((sum,q)=>sum+finite(q.x,.5),0)/pts.length;
+}
+function fillPosePairTarget(selEl, includeNew, preferred, exclude='') {
+  selEl.innerHTML='';
+  chars.forEach(c=>{const o=el('option');o.value=c.id;o.textContent=`${c.name} · ${c.height}cm`;selEl.append(o);});
+  if(includeNew){const o=el('option');o.value='__new__';o.textContent='새 캐릭터 자동 추가';selEl.append(o);}
+  if(preferred && preferred!==exclude && (preferred==='__new__'||chars.some(c=>c.id===preferred))) selEl.value=preferred;
+  else { const alt=chars.find(c=>c.id!==exclude); selEl.value=alt?alt.id:(includeNew?'__new__':(chars[0]?chars[0].id:'')); }
+}
+function syncPosePairTargets() {
+  const a=$('#posePairTargetA'), b=$('#posePairTargetB');
+  const pa=a.value||sel.c, pb=b.value;
+  fillPosePairTarget(a,false,pa);
+  fillPosePairTarget(b,true,pb,a.value);
+}
+$('#posePairTargetA').addEventListener('change',()=>{if($('#posePairTargetB').value===$('#posePairTargetA').value)syncPosePairTargets();});
+$('#posePairPick').onclick=()=>$('#posePairFile').click();
+
+function posePairCanvasSize(img) {
+  const maxEdge=1500, w0=Math.max(1,img.naturalWidth||img.width||960), h0=Math.max(1,img.naturalHeight||img.height||720);
+  const k=Math.min(1,maxEdge/Math.max(w0,h0)); return [Math.max(1,Math.round(w0*k)),Math.max(1,Math.round(h0*k))];
+}
+function fitPosePairCanvas() {
+  if(!posePair.img)return;
+  const rw=Math.max(1,posePairWrap.clientWidth-4), rh=Math.max(1,posePairWrap.clientHeight-4), iw=posePairCanvas.width||1, ih=posePairCanvas.height||1;
+  const k=Math.max(.01,Math.min(rw/iw,rh/ih)), dw=iw*k, dh=ih*k;
+  posePairCanvas.style.width=Math.max(1,Math.floor(dw))+'px'; posePairCanvas.style.height=Math.max(1,Math.floor(dh))+'px';
+}
+if(window.ResizeObserver)new ResizeObserver(()=>{if(!$('#posePairPane').hidden&&posePair.img)fitPosePairCanvas();}).observe(posePairWrap);
+else window.addEventListener('resize',()=>{if(!$('#posePairPane').hidden&&posePair.img)fitPosePairCanvas();});
+
+function posePairHitEq(a,b){return !!a&&!!b&&a.person===b.person&&a.joint===b.joint;}
+function drawPosePairPerson(person,pi,w,h) {
+  if(!person||!person.landmarks)return;
+  const C=POSE_PAIR_COLORS[pi%2], L=person.landmarks, ctx=posePairCtx;
+  ctx.strokeStyle=C.line; ctx.lineWidth=Math.max(2,w/420);
+  for(const [a,b] of POSE_DRAW_LINKS){const A=L[a],B=L[b];if(!A||!B)continue;ctx.beginPath();ctx.moveTo(A.x*w,A.y*h);ctx.lineTo(B.x*w,B.y*h);ctx.stroke();}
+  for(const i of POSE_EDIT_IDS){const q=L[i];if(!q)continue;const key={person:pi,joint:i},hot=posePairHitEq(key,posePair.drag)||posePairHitEq(key,posePair.hover);ctx.beginPath();ctx.arc(q.x*w,q.y*h,hot?9:7,0,Math.PI*2);ctx.fillStyle=hot?'#fff':C.point;ctx.fill();ctx.lineWidth=hot?4:3;ctx.strokeStyle=hot?C.hot:C.stroke;ctx.stroke();}
+  const sh=(L[11]&&L[12])?poseAvg2(L[11],L[12]):L[0];
+  if(sh){const label=pi===0?'A':'B',x=clamp(sh.x*w-14,5,w-33),y=clamp(sh.y*h-42,5,h-30);ctx.fillStyle=C.stroke;ctx.fillRect(x,y,28,22);ctx.fillStyle='#fff';ctx.font='700 12px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif';ctx.textAlign='center';ctx.fillText(label,x+14,y+15);ctx.textAlign='left';}
+}
+function drawPosePairImage() {
+  const ctx=posePairCtx;
+  if(!posePair.img){ctx.clearRect(0,0,posePairCanvas.width,posePairCanvas.height);$('#posePairEmpty').hidden=false;return;}
+  const [w,h]=posePairCanvasSize(posePair.img); if(posePairCanvas.width!==w||posePairCanvas.height!==h){posePairCanvas.width=w;posePairCanvas.height=h;}
+  fitPosePairCanvas(); ctx.clearRect(0,0,w,h); ctx.drawImage(posePair.img,0,0,w,h); $('#posePairEmpty').hidden=true;
+  if(!posePair.people.length)return;
+  ctx.save();ctx.lineCap='round';ctx.lineJoin='round';posePair.people.forEach((person,i)=>drawPosePairPerson(person,i,w,h));
+  if(posePair.hover){const person=posePair.people[posePair.hover.person],q=person&&person.landmarks&&person.landmarks[posePair.hover.joint];if(q){const text=(posePair.hover.person===0?'A · ':'B · ')+(POSE_POINT_NAMES[posePair.hover.joint]||'관절');ctx.font='600 13px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif';const tw=ctx.measureText(text).width,x=clamp(q.x*w+12,4,w-tw-16),y=clamp(q.y*h-28,4,h-25);ctx.fillStyle='rgba(20,23,28,.86)';ctx.fillRect(x,y,tw+12,22);ctx.fillStyle='#fff';ctx.fillText(text,x+6,y+15);}}
+  ctx.restore();
+}
+function posePairCanvasPoint(e){const r=posePairCanvas.getBoundingClientRect();return{x:(e.clientX-r.left)*posePairCanvas.width/Math.max(r.width,1),y:(e.clientY-r.top)*posePairCanvas.height/Math.max(r.height,1)};}
+function nearestPosePairPoint(e,radius=18){if(!posePair.people.length)return null;const p=posePairCanvasPoint(e);let best=null,bd=radius*radius;posePair.people.forEach((person,pi)=>{if(!person||!person.landmarks)return;for(const i of POSE_EDIT_IDS){const q=person.landmarks[i];if(!q)continue;const dx=q.x*posePairCanvas.width-p.x,dy=q.y*posePairCanvas.height-p.y,d=dx*dx+dy*dy;if(d<bd){bd=d;best={person:pi,joint:i};}}});return best;}
+posePairCanvas.addEventListener('pointerdown',e=>{const hit=nearestPosePairPoint(e);if(!hit)return;posePair.drag=hit;posePair.hover={...hit};posePairCanvas.setPointerCapture(e.pointerId);posePairCanvas.style.cursor='grabbing';e.preventDefault();drawPosePairImage();});
+posePairCanvas.addEventListener('pointermove',e=>{if(!posePair.people.length)return;if(posePair.drag){const p=posePairCanvasPoint(e),person=posePair.people[posePair.drag.person],q=person&&person.landmarks&&person.landmarks[posePair.drag.joint];if(q){q.x=clamp(p.x/posePairCanvas.width,0,1);q.y=clamp(p.y/posePairCanvas.height,0,1);}drawPosePairImage();return;}const hit=nearestPosePairPoint(e);if(!posePairHitEq(hit,posePair.hover)){posePair.hover=hit?{...hit}:null;drawPosePairImage();}posePairCanvas.style.cursor=hit?'grab':'default';});
+function endPosePairDrag(e){if(!posePair.drag)return;posePair.drag=null;try{posePairCanvas.releasePointerCapture(e.pointerId);}catch(_e){}posePairCanvas.style.cursor=posePair.hover?'grab':'default';drawPosePairImage();}
+posePairCanvas.addEventListener('pointerup',endPosePairDrag);posePairCanvas.addEventListener('pointercancel',endPosePairDrag);posePairCanvas.addEventListener('pointerleave',()=>{if(!posePair.drag&&posePair.hover){posePair.hover=null;drawPosePairImage();}});
+
+async function createPosePairLandmarker(numPoses) {
+  const mp=await import(POSE_MP_MODULE),vision=await mp.FilesetResolver.forVisionTasks(POSE_MP_WASM);
+  return mp.PoseLandmarker.createFromOptions(vision,{
+    baseOptions:{modelAssetPath:POSE_MP_MODEL,delegate:'CPU'},runningMode:'IMAGE',numPoses,
+    minPoseDetectionConfidence:.36,minPosePresenceConfidence:.38,minTrackingConfidence:.4,outputSegmentationMasks:false
+  });
+}
+async function getPosePairRoughLandmarker() {
+  if(posePair.roughLandmarker)return posePair.roughLandmarker;
+  if(posePair.roughLoading)return posePair.roughLoading;
+  posePair.roughLoading=createPosePairLandmarker(2);
+  try{posePair.roughLandmarker=await posePair.roughLoading;return posePair.roughLandmarker;}finally{posePair.roughLoading=null;}
+}
+async function getPosePairRefineLandmarker() {
+  if(posePair.refineLandmarker)return posePair.refineLandmarker;
+  if(posePair.refineLoading)return posePair.refineLoading;
+  posePair.refineLoading=createPosePairLandmarker(1);
+  try{posePair.refineLandmarker=await posePair.refineLoading;return posePair.refineLandmarker;}finally{posePair.refineLoading=null;}
+}
+async function getPosePairObjectDetector() {
+  if(posePair.detector)return posePair.detector;
+  if(posePair.detectorLoading)return posePair.detectorLoading;
+  posePair.detectorLoading=(async()=>{
+    const mp=await import(POSE_MP_MODULE),vision=await mp.FilesetResolver.forVisionTasks(POSE_MP_WASM);
+    return mp.ObjectDetector.createFromOptions(vision,{baseOptions:{modelAssetPath:POSE_PAIR_OBJECT_MODEL,delegate:'CPU'},runningMode:'IMAGE',maxResults:8,scoreThreshold:.18,categoryAllowlist:['person']});
+  })();
+  try{posePair.detector=await posePair.detectorLoading;return posePair.detector;}finally{posePair.detectorLoading=null;}
+}
+function posePairBoxFromDetection(d) {
+  const b=d&&d.boundingBox;if(!b)return null;
+  const iw=Math.max(1,posePair.img.naturalWidth||posePair.img.width),ih=Math.max(1,posePair.img.naturalHeight||posePair.img.height);
+  const x=clamp(finite(b.originX,0),0,iw-1),y=clamp(finite(b.originY,0),0,ih-1),w=clamp(finite(b.width,0),1,iw-x),h=clamp(finite(b.height,0),1,ih-y);
+  if(w<iw*.04||h<ih*.1)return null;
+  const cat=d.categories&&d.categories[0];return{x,y,w,h,score:finite(cat&&cat.score,0),cx:x+w*.5,cy:y+h*.5};
+}
+function posePairBoxIoU(a,b){const x1=Math.max(a.x,b.x),y1=Math.max(a.y,b.y),x2=Math.min(a.x+a.w,b.x+b.w),y2=Math.min(a.y+a.h,b.y+b.h),inter=Math.max(0,x2-x1)*Math.max(0,y2-y1);return inter/Math.max(1,a.w*a.h+b.w*b.h-inter);}
+function selectPosePairBoxes(detections) {
+  const boxes=(detections||[]).map(posePairBoxFromDetection).filter(Boolean).sort((a,b)=>b.score-a.score).slice(0,8);
+  if(boxes.length<2)return boxes;
+  const iw=Math.max(1,posePair.img.naturalWidth||posePair.img.width),ih=Math.max(1,posePair.img.naturalHeight||posePair.img.height);
+  let best=null,bestScore=-Infinity;
+  for(let i=0;i<boxes.length;i++)for(let j=i+1;j<boxes.length;j++){
+    const a=boxes[i],b=boxes[j],iou=posePairBoxIoU(a,b),dx=Math.abs(a.cx-b.cx),dy=Math.abs(a.cy-b.cy);
+    const minSep=Math.max(12,Math.min(a.w,b.w)*.12);
+    if(iou>.72||(dx<minSep&&dy<Math.max(12,Math.min(a.h,b.h)*.08)))continue;
+    const sep=Math.hypot(dx/iw,dy/ih),score=a.score+b.score+Math.min(.9,sep*2.2)-iou*.8;
+    if(score>bestScore){best=[a,b];bestScore=score;}
+  }
+  if(!best)return [];
+  return best.sort((a,b)=>a.cx-b.cx);
+}
+function posePairBoxFromLandmarks(L) {
+  if(!L||L.length<33||!posePair.img)return null;
+  const iw=Math.max(1,posePair.img.naturalWidth||posePair.img.width),ih=Math.max(1,posePair.img.naturalHeight||posePair.img.height);
+  const pts=[];
+  for(let i=0;i<L.length;i++){
+    const q=L[i];if(!q)continue;
+    const vis=finite(q.visibility,1);if(vis<.12)continue;
+    if(!Number.isFinite(q.x)||!Number.isFinite(q.y)||q.x<-.2||q.x>1.2||q.y<-.2||q.y>1.2)continue;
+    pts.push(q);
+  }
+  if(pts.length<6)return null;
+  let x1=1,y1=1,x2=0,y2=0;
+  pts.forEach(q=>{x1=Math.min(x1,q.x);y1=Math.min(y1,q.y);x2=Math.max(x2,q.x);y2=Math.max(y2,q.y);});
+  let x=clamp(x1*iw,0,iw-1),y=clamp(y1*ih,0,ih-1),w=clamp((x2-x1)*iw,1,iw-x),h=clamp((y2-y1)*ih,1,ih-y);
+  const minH=ih*.16,minW=iw*.07;
+  if(h<minH){const cy=y+h*.5;h=minH;y=clamp(cy-h*.5,0,ih-h);}
+  if(w<minW){const cx=x+w*.5;w=minW;x=clamp(cx-w*.5,0,iw-w);}
+  return{x,y,w,h,score:1,cx:x+w*.5,cy:y+h*.5};
+}
+function expandedPosePairBox(box,pad) {
+  const iw=Math.max(1,posePair.img.naturalWidth||posePair.img.width),ih=Math.max(1,posePair.img.naturalHeight||posePair.img.height);
+  const px=box.w*pad,py=box.h*pad;
+  const x1=clamp(box.x-px,0,iw-1),y1=clamp(box.y-py,0,ih-1),x2=clamp(box.x+box.w+px,1,iw),y2=clamp(box.y+box.h+py,1,ih);
+  return{x:x1,y:y1,w:Math.max(1,x2-x1),h:Math.max(1,y2-y1)};
+}
+function makePosePairCrop(box,pad) {
+  const cbox=expandedPosePairBox(box,pad),edge=Math.max(cbox.w,cbox.h),targetEdge=768;
+  const k=clamp(targetEdge/Math.max(1,edge),.55,3.0),cw=Math.max(2,Math.min(1024,Math.round(cbox.w*k))),ch=Math.max(2,Math.min(1024,Math.round(cbox.h*k)));
+  const canvas=document.createElement('canvas');canvas.width=cw;canvas.height=ch;const ctx=canvas.getContext('2d',{alpha:false});
+  ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(posePair.img,cbox.x,cbox.y,cbox.w,cbox.h,0,0,cw,ch);return{canvas,box:cbox};
+}
+function mapPosePairCropPoints(points,crop) {
+  if(!Array.isArray(points))return null;const iw=Math.max(1,posePair.img.naturalWidth||posePair.img.width),ih=Math.max(1,posePair.img.naturalHeight||posePair.img.height);
+  return points.map(p=>p?{...p,x:(crop.box.x+finite(p.x,0)*crop.box.w)/iw,y:(crop.box.y+finite(p.y,0)*crop.box.h)/ih}:p);
+}
+function posePairTorsoCenter(person) {
+  const L=person&&person.landmarks;if(!L||L.length<25)return null;
+  const pts=[L[11],L[12],L[23],L[24]].filter(Boolean);if(!pts.length)return null;
+  return{x:pts.reduce((v,q)=>v+finite(q.x,.5),0)/pts.length,y:pts.reduce((v,q)=>v+finite(q.y,.5),0)/pts.length};
+}
+function posePairPointInsideBox(q,box,margin=.14) {
+  if(!q||!box)return false;
+  const iw=Math.max(1,posePair.img.naturalWidth||posePair.img.width),ih=Math.max(1,posePair.img.naturalHeight||posePair.img.height);
+  const mx=box.w*margin,my=box.h*margin,x=finite(q.x,.5)*iw,y=finite(q.y,.5)*ih;
+  return x>=box.x-mx&&x<=box.x+box.w+mx&&y>=box.y-my&&y<=box.y+box.h+my;
+}
+function posePairCandidateFitsBox(person,box) {
+  const L=person&&person.landmarks,c=posePairTorsoCenter(person);if(!L||!c||!box)return false;
+  const iw=Math.max(1,posePair.img.naturalWidth||posePair.img.width),ih=Math.max(1,posePair.img.naturalHeight||posePair.img.height);
+  const cx=c.x*iw,cy=c.y*ih,dx=Math.abs(cx-box.cx)/Math.max(box.w,1),dy=Math.abs(cy-box.cy)/Math.max(box.h,1);
+  if(dx>.72||dy>.72||!posePairPointInsideBox(c,box,.16))return false;
+  let core=0;for(const i of [11,12,23,24])if(posePairPointInsideBox(L[i],box,.22))core++;
+  return core>=2;
+}
+function posePairCandidateScore(person,targetBox) {
+  const L=person&&person.landmarks;if(!L||L.length<33||!posePairCandidateFitsBox(person,targetBox))return-Infinity;
+  const iw=Math.max(1,posePair.img.naturalWidth||posePair.img.width),ih=Math.max(1,posePair.img.naturalHeight||posePair.img.height),c=posePairTorsoCenter(person);
+  const dx=(c.x*iw-targetBox.cx)/Math.max(targetBox.w,1),dy=(c.y*ih-targetBox.cy)/Math.max(targetBox.h,1),center=Math.max(0,1-Math.hypot(dx,dy));
+  const bx=targetBox.x-targetBox.w*.16,by=targetBox.y-targetBox.h*.16,bw=targetBox.w*1.32,bh=targetBox.h*1.32;
+  let inside=0,vis=0,n=0;for(const i of POSE_EDIT_IDS){const q=L[i];if(!q)continue;n++;const x=q.x*iw,y=q.y*ih;if(x>=bx&&x<=bx+bw&&y>=by&&y<=by+bh)inside++;vis+=clamp(finite(q.visibility,1),0,1);}
+  return center*1.9+(n?inside/n:0)*1.25+(n?vis/n:0)*.5;
+}
+function posePairSameIdentity(a,b) {
+  if(!a||!b)return false;
+  const ca=posePairTorsoCenter(a),cb=posePairTorsoCenter(b),A=a.landmarks,B=b.landmarks;if(!ca||!cb||!A||!B)return false;
+  const iw=Math.max(1,posePair.img.naturalWidth||posePair.img.width),ih=Math.max(1,posePair.img.naturalHeight||posePair.img.height);
+  const centerPx=Math.hypot((ca.x-cb.x)*iw,(ca.y-cb.y)*ih),ref=Math.max(20,Math.min(a.box&&a.box.w||iw*.25,b.box&&b.box.w||iw*.25)*.24);
+  let d=0,n=0;for(const i of [11,12,13,14,15,16,23,24,25,26,27,28]){if(A[i]&&B[i]){d+=Math.hypot(A[i].x-B[i].x,A[i].y-B[i].y);n++;}}
+  const avg=n?d/n:1;
+  return centerPx<ref&&avg<.045;
+}
+function posePairPeopleFromRough(result) {
+  const lms=result&&result.landmarks||[],wms=result&&result.worldLandmarks||[];
+  return lms.map((lm,i)=>{
+    if(!lm||lm.length<33)return null;
+    const p={landmarks:clonePosePoints(lm),world:clonePosePoints(wms[i]&&wms[i].length>=33?wms[i]:lm),box:null};
+    p.box=posePairBoxFromLandmarks(p.landmarks);return p;
+  }).filter(p=>p&&p.box).sort((a,b)=>posePairCenterX(a)-posePairCenterX(b)).slice(0,2);
+}
+function posePairLooksDistinct(a,b) {
+  if(!a||!b||posePairSameIdentity(a,b))return false;
+  const ca=posePairTorsoCenter(a),cb=posePairTorsoCenter(b);if(!ca||!cb)return false;
+  const iw=Math.max(1,posePair.img.naturalWidth||posePair.img.width),ih=Math.max(1,posePair.img.naturalHeight||posePair.img.height);
+  const sep=Math.hypot((ca.x-cb.x)*iw,(ca.y-cb.y)*ih),ref=Math.max(18,Math.min(a.box&&a.box.w||iw*.25,b.box&&b.box.w||iw*.25)*.18);
+  return sep>ref;
+}
+async function refinePosePairBox(box,label,run,avoidPerson=null) {
+  const landmarker=await getPosePairRefineLandmarker();if(run!==posePair.runSeq)return null;
+  let best=null,bestScore=-Infinity;
+  for(const pad of [.05,.14,.24]){
+    if(run!==posePair.runSeq)return null;
+    const crop=makePosePairCrop(box,pad);await new Promise(r=>setTimeout(r,0));
+    const result=landmarker.detect(crop.canvas),lm=result&&result.landmarks&&result.landmarks[0],wm=result&&result.worldLandmarks&&result.worldLandmarks[0];
+    if(!lm||lm.length<33)continue;
+    const person={landmarks:mapPosePairCropPoints(lm,crop),world:clonePosePoints(wm&&wm.length>=33?wm:lm),box:{...box}};
+    if(!posePairCandidateFitsBox(person,box)||posePairSameIdentity(person,avoidPerson))continue;
+    const score=posePairCandidateScore(person,box);if(score>bestScore){best=person;bestScore=score;}
+    if(best&&bestScore>3.15)break;
+  }
+  return best;
+}
+async function detectPosePairFromBoxes(boxes,run) {
+  const ordered=boxes.slice(0,2).sort((a,b)=>a.cx-b.cx),found=[null,null];
+  for(let pi=0;pi<2;pi++){
+    if(run!==posePair.runSeq)return null;
+    setPosePairStatus(`${pi===0?'A':'B'} 인물을 고정된 사람 영역 안에서 정밀 분석하고 있습니다…`,'busy');
+    found[pi]=await refinePosePairBox(ordered[pi],pi===0?'A':'B',run,pi===1?found[0]:null);
+  }
+  return found;
+}
+async function posePairFallbackBoxes(run) {
+  setPosePairStatus('사람 영역 검출이 부족해 전체 이미지 포즈를 보조로 확인하고 있습니다…','busy');
+  const rough=await getPosePairRoughLandmarker();if(run!==posePair.runSeq)return [];
+  await new Promise(r=>setTimeout(r,0));
+  const roughResult=rough.detect(posePair.img);if(run!==posePair.runSeq)return [];
+  const seeds=posePairPeopleFromRough(roughResult);
+  if(seeds.length<2||!posePairLooksDistinct(seeds[0],seeds[1]))return [];
+  return seeds.map(p=>({...p.box})).sort((a,b)=>a.cx-b.cx);
+}
+async function analyzePosePairImage() {
+  if(!posePair.img||posePair.analyzing)return;
+  const run=++posePair.runSeq,imgRef=posePair.img;posePair.analyzing=true;$('#posePairAnalyze').disabled=true;$('#posePairApply').disabled=true;$('#posePairReset').disabled=true;
+  setPosePairStatus('사진에서 서로 다른 두 사람의 영역을 먼저 찾고 있습니다. 처음 한 번은 모델 준비에 시간이 걸릴 수 있습니다.','busy');
+  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+  try{
+    const detector=await getPosePairObjectDetector();if(run!==posePair.runSeq||imgRef!==posePair.img)return;
+    await new Promise(r=>setTimeout(r,0));
+    const det=detector.detect(imgRef);if(run!==posePair.runSeq||imgRef!==posePair.img)return;
+    let boxes=selectPosePairBoxes(det&&det.detections),usedFallback=false;
+    if(boxes.length<2){usedFallback=true;boxes=await posePairFallbackBoxes(run);if(run!==posePair.runSeq||imgRef!==posePair.img)return;}
+    posePair.boxes=boxes;
+    if(boxes.length<2)throw new Error('서로 다른 사람 2명의 영역을 분리하지 못했습니다.');
+    const found=await detectPosePairFromBoxes(boxes,run);if(run!==posePair.runSeq||imgRef!==posePair.img)return;
+    posePair.people=found||[null,null];posePair.hover=posePair.drag=null;drawPosePairImage();
+    const a=posePair.people[0],b=posePair.people[1];
+    if(!a||!b||!posePairLooksDistinct(a,b)){
+      posePair.originals=posePair.people.map(clonePosePairPerson);$('#posePairReset').disabled=!posePair.people.some(Boolean);
+      const missing=!a?'A':!b?'B':'B';
+      setPosePairStatus(`${missing} 인물을 정확히 구분해 찾지 못했습니다. 잘못된 스켈레톤은 표시하지 않았습니다. 다시 분석하거나 두 사람의 몸이 더 분리되어 보이는 이미지를 사용해 주세요.`,'err');
+      return;
+    }
+    posePair.people=[a,b];posePair.originals=posePair.people.map(clonePosePairPerson);$('#posePairApply').disabled=false;$('#posePairReset').disabled=false;
+    setPosePairStatus(usedFallback?'사람 영역 검출이 부족해 보조 경로로 A/B 영역을 잡은 뒤 각각 정밀 분석했습니다. 관절을 확인하고 필요하면 드래그해 보정하세요.':'A/B를 서로 다른 사람 영역에 고정한 뒤 각각 정밀 분석했습니다. 관절을 확인한 뒤 두 포즈를 적용하세요.');
+  }catch(e){
+    if(run!==posePair.runSeq||imgRef!==posePair.img)return;
+    posePair.people=[];posePair.originals=[];posePair.boxes=[];posePair.hover=posePair.drag=null;drawPosePairImage();
+    setPosePairStatus((e&&e.message?e.message:'2인 포즈 분석에 실패했습니다.')+' 두 사람의 몸이 가능한 한 많이 보이는 이미지를 사용해 주세요.','err');
+  }finally{
+    if(run===posePair.runSeq&&imgRef===posePair.img){posePair.analyzing=false;$('#posePairAnalyze').disabled=!posePair.img;}
+  }
+}
+$('#posePairAnalyze').onclick=analyzePosePairImage;
+$('#posePairReset').onclick=()=>{if(!posePair.originals.length)return;posePair.people=posePair.originals.map(clonePosePairPerson);posePair.hover=posePair.drag=null;drawPosePairImage();setPosePairStatus('감지 직후 두 사람의 관절 위치로 되돌렸습니다.');};
+$('#posePairFile').addEventListener('change',e=>{
+  const f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;if(!/^image\//.test(f.type)){setPosePairStatus('이미지 파일을 선택해 주세요.','err');return;}
+  ++posePair.runSeq;posePair.analyzing=false;$('#posePairApply').disabled=true;$('#posePairReset').disabled=true;
+  if(posePair.url)URL.revokeObjectURL(posePair.url);posePair.url=URL.createObjectURL(f);
+  const img=new Image();img.onload=()=>{posePair.img=img;posePair.people=[];posePair.originals=[];posePair.boxes=[];posePair.hover=posePair.drag=null;drawPosePairImage();$('#posePairAnalyze').disabled=false;setPosePairStatus('2인 이미지를 불러왔습니다. 두 사람을 각각 분석합니다.','busy');analyzePosePairImage();};
+  img.onerror=()=>setPosePairStatus('이미지를 읽을 수 없습니다. 다른 이미지 파일을 선택해 주세요.','err');img.src=posePair.url;
+});
+
+function posePairWorldV(person,i){const w=person&&person.world&&person.world[i];return w?V3(finite(w.x,0),finite(w.y,0),finite(w.z,0)):V3();}
+function posePairMetrics(person){
+  const L=person&&person.landmarks;if(!L||L.length<33)return null;
+  const aspect=(posePair.img&&(posePair.img.naturalWidth||posePair.img.width)/Math.max(1,(posePair.img.naturalHeight||posePair.img.height)))||1;
+  const hip=poseAvg2(L[23],L[24]),sh=poseAvg2(L[11],L[12]);
+  const hipW=poseAvgV(posePairWorldV(person,23),posePairWorldV(person,24)),shW=poseAvgV(posePairWorldV(person,11),posePairWorldV(person,12));
+  const screenTorso=Math.hypot((sh.x-hip.x)*aspect,sh.y-hip.y),worldTorso=Math.max(.12,shW.distanceTo(hipW)),xyScale=clamp(worldTorso/Math.max(screenTorso,.04),.35,4.0);
+  const feet=[27,28,31,32].map(i=>L[i]).filter(q=>q&&finite(q.visibility,1)>.28),footY=feet.length?Math.max(...feet.map(q=>q.y)):Math.max(L[23].y,L[24].y);
+  return{aspect,hip,sh,xyScale,footY,box:person.box||null};
+}
+// v2.0.1의 applyImagePoseToChar()를 그대로 재사용합니다. 2인용 변환 수식을 따로 유지하지 않습니다.
+function applyPosePairPersonToChar(c,person){
+  if(!c||!person||!person.landmarks)return false;
+  const saved={img:poseImg.img,landmarks:poseImg.landmarks,world:poseImg.world,original:poseImg.original,originalWorld:poseImg.originalWorld,hover:poseImg.hover,drag:poseImg.drag};
+  try{poseImg.img=posePair.img;poseImg.landmarks=person.landmarks;poseImg.world=person.world;return applyImagePoseToChar(c);}
+  finally{poseImg.img=saved.img;poseImg.landmarks=saved.landmarks;poseImg.world=saved.world;poseImg.original=saved.original;poseImg.originalWorld=saved.originalWorld;poseImg.hover=saved.hover;poseImg.drag=saved.drag;}
+}
+function posePairRelativeOffset(cA,cB){
+  const a=posePairMetrics(posePair.people[0]),b=posePairMetrics(posePair.people[1]);if(!a||!b)return V3(.8,0,0);
+  const iw=Math.max(1,posePair.img.naturalWidth||posePair.img.width),ih=Math.max(1,posePair.img.naturalHeight||posePair.img.height),dxPx=(b.hip.x-a.hip.x)*iw,dyPx=(b.footY-a.footY)*ih;
+  if(a.box&&b.box){
+    const mppA=(finite(cA.height,175)/100)/Math.max(a.box.h,ih*.08),mppB=(finite(cB.height,175)/100)/Math.max(b.box.h,ih*.08),mpp=(mppA+mppB)*.5;
+    return V3(clamp(dxPx*mpp,-4,4),0,Math.abs(dyPx)<ih*.018?0:clamp(dyPx*mpp*.35,-1.5,1.5));
+  }
+  const heightScale=(finite(cA.height,175)+finite(cB.height,175))/350,scale=clamp((a.xyScale+b.xyScale)*.5*heightScale,.35,4.5);
+  return V3(clamp((b.hip.x-a.hip.x)*a.aspect*scale,-4,4),0,Math.abs(b.footY-a.footY)<.018?0:clamp((b.footY-a.footY)*scale*.55,-1.5,1.5));
+}
+function resolvePosePairCharacters(){
+  const aid=$('#posePairTargetA').value,bid=$('#posePairTargetB').value,a=chars.find(c=>c.id===aid)||selChar()||chars[0];if(!a)return{error:'적용할 A 캐릭터가 없습니다.'};
+  if(bid===a.id)return{error:'A와 B에는 서로 다른 캐릭터를 선택해 주세요.'};
+  let b=chars.find(c=>c.id===bid)||null;if(!b){if(chars.length>=MAX_CHARS)return{error:`캐릭터는 최대 ${MAX_CHARS}명까지 추가할 수 있습니다.`};const d=defaultChar(chars.length,chars.map(x=>x.color));b=createCharacter(d);chars.push(b);}
+  if(a===b)return{error:'A와 B에는 서로 다른 캐릭터를 선택해 주세요.'};return{a,b};
+}
+$('#posePairApply').onclick=()=>{
+  if(!posePair.people[0]||!posePair.people[1])return;
+  const before=snap(),pair=resolvePosePairCharacters();if(!pair||pair.error){if(pair&&pair.error)setPosePairStatus(pair.error,'err');return;}
+  const anchor=pair.a.root.position.clone();
+  if(!applyPosePairPersonToChar(pair.a,posePair.people[0])||!applyPosePairPersonToChar(pair.b,posePair.people[1])){restoreSnap(before);setPosePairStatus('두 포즈를 3D 관절로 변환하지 못했습니다. 다른 이미지를 사용해 주세요.','err');return;}
+  const off=posePairRelativeOffset(pair.a,pair.b);pair.a.root.position.x=anchor.x;pair.a.root.position.z=anchor.z;pair.b.root.position.x=anchor.x+off.x;pair.b.root.position.z=anchor.z+off.z;applyChar(pair.a);applyChar(pair.b);
+  selectChar(pair.a);commit();closePoseImageTool();toast(`${pair.a.name}·${pair.b.name}에 2인 이미지 포즈와 상대 간격을 적용했습니다. 앞뒤 깊이는 필요하면 3D 화면에서 미세 조정하세요.`,4600);
+};
+
 // 에셋 패널
 // 일반 실행에서는 정적 WebP만 사용한다. 단일 HTML 빌드는 build-single.mjs가 같은 이미지를 data URI로 주입한다.
 const PROP_THUMB_VERSION = '1.4.0';
