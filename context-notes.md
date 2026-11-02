@@ -1,4 +1,4 @@
-# PoseBlock 3D v2.1.4 Context Notes
+# PoseBlock 3D v2.1.6 Context Notes
 
 ## 기준 버전
 - 기준: v1.7.5

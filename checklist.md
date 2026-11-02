@@ -1,4 +1,4 @@
-# PoseBlock 3D v2.1.4 Checklist
+# PoseBlock 3D v2.1.6 Checklist
 
 ## 작업 전
 - [x] v1.7.5 기준본 확인

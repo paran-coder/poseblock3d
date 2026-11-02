@@ -1239,6 +1239,8 @@ function syncPoseImgTarget() {
   if (chars.some(c => c.id === prev)) s.value = prev; else if (selChar()) s.value = selChar().id;
 }
 function openPoseImageTool() {
+  // 보조 화면은 한 번에 하나만 표시합니다. 프리셋 사전에서 바로 이미지 포즈로 이동할 수 있습니다.
+  if (!$('#presetDict').hidden) closePresetDict();
   syncPoseImgTarget(); $('#poseImageTool').hidden = false; drawPoseImage();
 }
 function closePoseImageTool() { $('#poseImageTool').hidden = true; }
@@ -2207,7 +2209,11 @@ function initPresetDict() {
     dictState.people=b.dataset.n; $('#presetPeople').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b)); renderPresetDict();
   });
 }
-function openPresetDict() { initPresetDict(); $('#presetDict').hidden=false; $('#presetDictBtn').classList.add('pri'); renderPresetDict(); $('#presetSearch').focus(); }
+function openPresetDict() {
+  // 이미지 포즈 화면에서 작업 화면을 거치지 않고 바로 프리셋 사전으로 이동할 수 있습니다.
+  if (!$('#poseImageTool').hidden) closePoseImageTool();
+  initPresetDict(); $('#presetDict').hidden=false; $('#presetDictBtn').classList.add('pri'); renderPresetDict(); $('#presetSearch').focus();
+}
 function closePresetDict() { $('#presetDict').hidden=true; $('#presetDictBtn').classList.remove('pri'); stage.focus && stage.focus(); }
 $('#presetDictBtn').onclick = () => $('#presetDict').hidden ? openPresetDict() : closePresetDict(); $('#presetDictClose').onclick = closePresetDict;
 

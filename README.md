@@ -1,4 +1,4 @@
-# PoseBlock 3D v2.1.4
+# PoseBlock 3D v2.1.6
 
 PoseBlock 3D는 브라우저에서 캐릭터 포즈, 다인 장면, 에셋과 카메라 구도를 빠르게 블로킹하는 3D 포즈 도구입니다.
 

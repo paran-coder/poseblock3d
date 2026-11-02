@@ -28,6 +28,14 @@
 <meta name="twitter:image" content="https://poseblock3d.vercel.app/og-image.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%233e63dd'/%3E%3Ccircle cx='32' cy='18' r='7' fill='white'/%3E%3Cpath d='M32 26v18M32 32l-12 8M32 32l12 8M32 44l-9 12M32 44l9 12' stroke='white' stroke-width='5' stroke-linecap='round' fill='none'/%3E%3C/svg%3E">
 
+<!-- Vercel Web Analytics: 방문자/페이지뷰만 수집 -->
+<script>
+  window.va = window.va || function () {
+    (window.vaq = window.vaq || []).push(arguments);
+  };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+
 <style>
 /* PoseBlock 3D 전체 스타일 (레이아웃, 패널, 3D 화면 위 오버레이, 공유 창) */
 :root{
@@ -268,7 +276,7 @@ kbd{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;background:#eef0f3;bor
 <body>
 
 <header>
-  <a class="brand" href="https://poseblock3d.vercel.app/" aria-label="PoseBlock 3D 홈페이지" title="PoseBlock 3D 홈페이지로 이동"><span class="logo">◈</span><span class="t">PoseBlock <b>3D</b></span></a><span class="app-ver" aria-label="현재 버전">v2.1.4</span>
+  <a class="brand" href="https://poseblock3d.vercel.app/" aria-label="PoseBlock 3D 홈페이지" title="PoseBlock 3D 홈페이지로 이동"><span class="logo">◈</span><span class="t">PoseBlock <b>3D</b></span></a><span class="app-ver" aria-label="현재 버전">v2.1.6</span>
   <div class="grp">
     <button class="btn" id="undo" title="되돌리기 (Ctrl+Z)">↶</button>
     <button class="btn" id="redo" title="다시 실행 (Ctrl+Shift+Z)">↷</button>
@@ -1795,6 +1803,8 @@ function syncPoseImgTarget() {
   if (chars.some(c => c.id === prev)) s.value = prev; else if (selChar()) s.value = selChar().id;
 }
 function openPoseImageTool() {
+  // 보조 화면은 한 번에 하나만 표시합니다. 프리셋 사전에서 바로 이미지 포즈로 이동할 수 있습니다.
+  if (!$('#presetDict').hidden) closePresetDict();
   syncPoseImgTarget(); $('#poseImageTool').hidden = false; drawPoseImage();
 }
 function closePoseImageTool() { $('#poseImageTool').hidden = true; }
@@ -2763,7 +2773,11 @@ function initPresetDict() {
     dictState.people=b.dataset.n; $('#presetPeople').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b)); renderPresetDict();
   });
 }
-function openPresetDict() { initPresetDict(); $('#presetDict').hidden=false; $('#presetDictBtn').classList.add('pri'); renderPresetDict(); $('#presetSearch').focus(); }
+function openPresetDict() {
+  // 이미지 포즈 화면에서 작업 화면을 거치지 않고 바로 프리셋 사전으로 이동할 수 있습니다.
+  if (!$('#poseImageTool').hidden) closePoseImageTool();
+  initPresetDict(); $('#presetDict').hidden=false; $('#presetDictBtn').classList.add('pri'); renderPresetDict(); $('#presetSearch').focus();
+}
 function closePresetDict() { $('#presetDict').hidden=true; $('#presetDictBtn').classList.remove('pri'); stage.focus && stage.focus(); }
 $('#presetDictBtn').onclick = () => $('#presetDict').hidden ? openPresetDict() : closePresetDict(); $('#presetDictClose').onclick = closePresetDict;
 
